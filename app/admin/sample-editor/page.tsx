@@ -1,15 +1,23 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 import { createBlankWeddingContent } from "@/lib/content/blank";
 import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
 import type { AccountInfo, DetailItem, GalleryImageItem, ImageItem, WeddingContent } from "@/lib/content/types";
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({
+  id,
+  title,
+  children,
+}: {
+  id?: string;
+  title: string;
+  children: ReactNode;
+}) {
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-5 md:p-6">
+    <section id={id} className="scroll-mt-40 rounded-xl border border-gray-200 bg-white p-5 md:p-6">
       <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
       <div className="mt-4 space-y-4">{children}</div>
     </section>
@@ -119,6 +127,103 @@ function ImagePreview({ src, alt }: { src: string; alt: string }) {
   );
 }
 
+type SectionTab = {
+  id: string;
+  label: string;
+};
+
+function resolveInvitationTitle(content: WeddingContent | null): string {
+  if (!content) return "내 초대장";
+  if (content.share.kakaoTitle.trim() !== "") return content.share.kakaoTitle.trim();
+  if (content.couple.displayName.trim() !== "") return content.couple.displayName.trim();
+  const names = `${content.couple.groomName} ${content.couple.brideName}`.trim();
+  if (names !== "") return names;
+  return "내 초대장";
+}
+
+function EditorHeader({
+  name,
+  email,
+  onLogout,
+}: {
+  name: string;
+  email: string;
+  onLogout: () => Promise<void> | void;
+}) {
+  const router = useRouter();
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const closeOnOutside = (event: MouseEvent) => {
+      if (!menuRef.current) return;
+      if (!menuRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    window.addEventListener("click", closeOnOutside);
+    return () => window.removeEventListener("click", closeOnOutside);
+  }, []);
+
+  const handleLogout = async () => {
+    setBusy(true);
+    try {
+      await onLogout();
+    } finally {
+      setBusy(false);
+      setOpen(false);
+    }
+  };
+
+  const initial = (name || email || "M").trim().charAt(0).toUpperCase();
+
+  return (
+    <header className="border-b border-gray-200 bg-white">
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 md:px-6">
+        <div className="text-lg font-bold text-gray-900">mariecard</div>
+
+        <div ref={menuRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setOpen((prev) => !prev)}
+            className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700"
+          >
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-700">
+              {initial}
+            </span>
+            <span className="hidden max-w-[180px] truncate md:block">{name || email}</span>
+          </button>
+
+          {open && (
+            <div className="absolute right-0 z-30 mt-2 w-44 rounded-xl border border-gray-200 bg-white p-1 shadow-lg">
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  router.push("/mypage");
+                }}
+                className="block w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              >
+                마이페이지
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={busy}
+                className="block w-full rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:opacity-60"
+              >
+                로그아웃
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+}
+
 function AdminPageContent() {
   const searchParams = useSearchParams();
   const invitationId = searchParams.get("invitationId");
@@ -140,6 +245,9 @@ function AdminPageContent() {
   const [previewUrl, setPreviewUrl] = useState("");
   const [publicUrl, setPublicUrl] = useState("");
   const [reactivating, setReactivating] = useState(false);
+  const [profileName, setProfileName] = useState("내 계정");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [activeSection, setActiveSection] = useState("section-basic");
 
   const getAdminHeaders = useCallback((): Record<string, string> => {
     if (activeAdminKey === "") return {};
@@ -182,6 +290,20 @@ function AdminPageContent() {
       : `/api/platform/invitations/${invitationId}/status`
     : "";
   const isReadOnly = isPlatformMode && invitationMeta?.status === "archived" && !isSuperMode;
+  const sectionTabs = useMemo<SectionTab[]>(
+    () => [
+      { id: "section-basic", label: "기본 설정" },
+      { id: "section-share", label: "공유 문구" },
+      { id: "section-hero", label: "히어로" },
+      { id: "section-guide", label: "안내 문구" },
+      { id: "section-location", label: "오시는 길" },
+      { id: "section-images", label: "섹션 이미지" },
+      { id: "section-gallery", label: "갤러리" },
+      { id: "section-account", label: "계좌번호" },
+      ...(!isPlatformMode ? [{ id: "section-backup", label: "백업/복구" }] : []),
+    ],
+    [isPlatformMode],
+  );
 
   const loadBackups = async (currentKey: string) => {
     const res = await fetch("/api/admin/backups", {
@@ -500,11 +622,86 @@ function AdminPageContent() {
     }
   };
 
+  const handleHeaderLogout = async () => {
+    if (isPlatformMode && !isSuperMode) {
+      try {
+        const supabase = createSupabaseClient();
+        await supabase.auth.signOut();
+      } catch {
+        // no-op
+      }
+      window.location.href = "/auth/login";
+      return;
+    }
+
+    setIsAuthenticated(false);
+    setContent(null);
+    setLoginPassword("");
+    setActiveAdminKey("");
+    window.sessionStorage.removeItem("adminPin");
+  };
+
+  const scrollToSection = (id: string) => {
+    const target = document.getElementById(id);
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    setActiveSection(id);
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated || !isPlatformMode || isSuperMode) {
+      setProfileName(isSuperMode ? "슈퍼관리자" : "관리자");
+      setProfileEmail("");
+      return;
+    }
+
+    const loadUser = async () => {
+      try {
+        const supabase = createSupabaseClient();
+        const { data } = await supabase.auth.getUser();
+        const user = data.user;
+        if (!user) return;
+        setProfileName(user.user_metadata?.name || user.email || "내 계정");
+        setProfileEmail(user.email || "");
+      } catch {
+        setProfileName("내 계정");
+      }
+    };
+
+    void loadUser();
+  }, [isAuthenticated, isPlatformMode, isSuperMode]);
+
+  useEffect(() => {
+    if (!ready) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+
+        if (visible.length > 0) {
+          setActiveSection(visible[0].target.id);
+        }
+      },
+      { rootMargin: "-120px 0px -65% 0px", threshold: 0.1 },
+    );
+
+    sectionTabs.forEach((tab) => {
+      const el = document.getElementById(tab.id);
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, [ready, sectionTabs]);
+
+  const invitationTitle = resolveInvitationTitle(content);
+
   if (!isAuthenticated && (!isPlatformMode || isSuperMode)) {
     return (
       <main className="min-h-screen bg-gray-50 p-6 md:p-10">
         <div className="mx-auto max-w-3xl space-y-4 rounded-xl border border-gray-200 bg-white p-5 md:p-6">
-          <h1 className="text-2xl font-bold text-gray-900">청첩장 관리자</h1>
+          <h1 className="text-2xl font-bold text-gray-900">내 초대장</h1>
           <p className="text-sm text-gray-600">로그인 후 관리자 페이지에 진입할 수 있습니다.</p>
           <div className="grid gap-3 md:grid-cols-[1fr_auto]">
             <TextInput
@@ -538,7 +735,7 @@ function AdminPageContent() {
     return (
       <main className="min-h-screen bg-gray-50 p-6 md:p-10">
         <div className="mx-auto max-w-3xl space-y-4 rounded-xl border border-gray-200 bg-white p-5 md:p-6">
-          <h1 className="text-2xl font-bold text-gray-900">청첩장 관리자</h1>
+          <h1 className="text-2xl font-bold text-gray-900">내 초대장</h1>
           <p className="text-sm text-gray-600">
             {loading ? "관리자 데이터 불러오는 중..." : "데이터를 불러오지 못했습니다."}
           </p>
@@ -559,10 +756,35 @@ function AdminPageContent() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 p-4 pb-28 md:p-8 md:pb-32">
-      <div className="mx-auto max-w-6xl space-y-5">
+    <main className="min-h-screen bg-[#f3f4f6]">
+      <EditorHeader
+        name={profileName}
+        email={profileEmail}
+        onLogout={handleHeaderLogout}
+      />
+
+      <div className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 backdrop-blur-sm">
+        <div className="mx-auto flex w-full max-w-6xl items-center gap-2 overflow-x-auto px-4 py-3 md:px-6">
+          {sectionTabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => scrollToSection(tab.id)}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-sm transition ${
+                activeSection === tab.id
+                  ? "bg-black text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-6xl space-y-5 px-4 py-6 pb-28 md:px-6 md:py-8 md:pb-32">
         <header className="rounded-xl border border-gray-200 bg-white p-5 md:p-6">
-          <h1 className="text-2xl font-bold text-gray-900">청첩장 관리자</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{invitationTitle}</h1>
           <p className="mt-2 text-sm text-gray-600">
             이 페이지에서 콘텐츠를 수정하고 저장하면 메인 청첩장에 반영됩니다.
           </p>
@@ -603,28 +825,6 @@ function AdminPageContent() {
                 )}
               </>
             )}
-            <button
-            onClick={async () => {
-                if (isPlatformMode && !isSuperMode) {
-                  try {
-                    const supabase = createSupabaseClient();
-                    await supabase.auth.signOut();
-                  } catch {
-                    // no-op
-                  }
-                  window.location.href = "/auth/login";
-                  return;
-                }
-                setIsAuthenticated(false);
-                setContent(null);
-                setLoginPassword("");
-                setActiveAdminKey("");
-                window.sessionStorage.removeItem("adminPin");
-              }}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
-            >
-              {isPlatformMode && !isSuperMode ? "로그인 화면" : "로그아웃"}
-            </button>
             <button
               onClick={handleOpenInvitation}
               disabled={saving || isReadOnly}
@@ -684,7 +884,7 @@ function AdminPageContent() {
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
           <fieldset disabled={isReadOnly} className="space-y-5 disabled:opacity-70">
         {!isPlatformMode && (
-          <Section title="백업/복구">
+          <Section id="section-backup" title="백업/복구">
             <p className="text-sm text-gray-600">
               저장 시 자동 백업됩니다. 백업 선택 시 현재 데이터 위에 복원됩니다.
             </p>
@@ -710,7 +910,7 @@ function AdminPageContent() {
           </Section>
         )}
 
-        <Section title="신랑/신부 이름 및 날짜">
+        <Section id="section-basic" title="신랑/신부 이름 및 날짜">
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="신랑 이름">
               <TextInput
@@ -772,7 +972,7 @@ function AdminPageContent() {
           </div>
         </Section>
 
-        <Section title="공유 문구">
+        <Section id="section-share" title="공유 문구">
           <Field label="카카오 공유 타이틀">
             <TextInput
               value={content.share.kakaoTitle}
@@ -836,7 +1036,7 @@ function AdminPageContent() {
           </Field>
         </Section>
 
-        <Section title="히어로 비디오/이미지">
+        <Section id="section-hero" title="히어로 비디오/이미지">
           <Field label="타입">
             <select
               value={content.heroMedia.type}
@@ -920,7 +1120,7 @@ function AdminPageContent() {
           </Field>
         </Section>
 
-        <Section title="안내문구(타이틀/설명)">
+        <Section id="section-guide" title="안내문구(타이틀/설명)">
           <Field label="히어로 타이틀">
             <TextArea
               rows={3}
@@ -959,7 +1159,7 @@ function AdminPageContent() {
           </Field>
         </Section>
 
-        <Section title="장소/오시는 길">
+        <Section id="section-location" title="장소/오시는 길">
           <Field label="장소명">
             <TextInput
               value={content.detailsSection.venueName}
@@ -1119,7 +1319,7 @@ function AdminPageContent() {
           </div>
         </Section>
 
-        <Section title="각 섹션 이미지(추가/삭제/변경)">
+        <Section id="section-images" title="각 섹션 이미지(추가/삭제/변경)">
           <Field label="소개 섹션 이미지">
             <ImagePreview
               src={content.introSection.image.src}
@@ -1258,7 +1458,7 @@ function AdminPageContent() {
           </div>
         </Section>
 
-        <Section title="갤러리 (추가/삭제/순서변경/변경)">
+        <Section id="section-gallery" title="갤러리 (추가/삭제/순서변경/변경)">
           <div className="space-y-2">
             <Field label="갤러리 타이틀">
               <TextInput
@@ -1386,7 +1586,7 @@ function AdminPageContent() {
           </button>
         </Section>
 
-        <Section title="계좌번호 (입력/수정/삭제)">
+        <Section id="section-account" title="계좌번호 (입력/수정/삭제)">
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="섹션 타이틀">
               <TextInput
