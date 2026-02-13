@@ -47,10 +47,7 @@ export async function getPublicInvitationContent(publicId: string) {
 
   if (!invitation) return null;
 
-  const published = await getLatestContent(invitation.id, true);
-  if (published) return published;
-
-  return getLatestContent(invitation.id, false);
+  return getLatestContent(invitation.id, true);
 }
 
 export async function getPreviewInvitationContent(previewToken: string) {
