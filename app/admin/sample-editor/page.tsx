@@ -1568,13 +1568,25 @@ function MobileLivePreview({ content }: { content: WeddingContent }) {
     };
   }, [content, frameLoaded, postPreviewContent]);
 
+  const previewFrameStyle = useMemo(
+    () =>
+      ({
+        width: "min(100%, 393px, calc((100dvh - 180px) * 393 / 852))",
+        aspectRatio: "393 / 852",
+      }) as const,
+    [],
+  );
+
   return (
-    <div className="mx-auto w-[393px] overflow-hidden rounded-[34px] border-[8px] border-gray-900 bg-white shadow-xl">
+    <div
+      className="mx-auto overflow-hidden rounded-[34px] border-[8px] border-gray-900 bg-white shadow-xl"
+      style={previewFrameStyle}
+    >
       <iframe
         ref={iframeRef}
         title="모바일 실시간 미리보기"
         src="/live-preview"
-        className="h-[852px] w-full border-0 bg-white"
+        className="h-full w-full border-0 bg-white"
         onLoad={() => {
           setFrameLoaded(true);
           postPreviewContent();
