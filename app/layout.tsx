@@ -3,50 +3,30 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import clsx from "clsx";
 import { ImageProtection } from "@/components/ImageProtection";
-import { getWeddingContent } from "@/lib/content/store";
 
 const inter = Inter({ subsets: ["latin"] });
 
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://www.invite-chulwan-nara.com";
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://mariecard.com";
+const TITLE = "MarieCard | 청첩장 제작하기";
+const DESCRIPTION = "Google 로그인 후 나만의 모바일 청첩장을 제작하세요.";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const content = await getWeddingContent();
-  const title = content.share.kakaoTitle;
-  const description = content.share.kakaoDescription;
-  const ogImage = content.share.imageUrl.startsWith("http")
-    ? content.share.imageUrl
-    : `${SITE_URL}${content.share.imageUrl}`;
-
   return {
-    title,
-    description,
+    title: TITLE,
+    description: DESCRIPTION,
     metadataBase: new URL(SITE_URL),
     openGraph: {
-      title,
-      description,
+      title: TITLE,
+      description: DESCRIPTION,
       url: SITE_URL,
-      siteName: title,
-      images: [
-        {
-          url: ogImage,
-          width: 1200,
-          height: 630,
-          alt: title,
-        },
-      ],
+      siteName: "MarieCard",
       locale: "ko_KR",
       type: "website",
     },
     twitter: {
       card: "summary_large_image",
-      title,
-      description,
-      images: [ogImage],
-    },
-    other: {
-      "og:image:width": "1200",
-      "og:image:height": "630",
+      title: TITLE,
+      description: DESCRIPTION,
     },
   };
 }
