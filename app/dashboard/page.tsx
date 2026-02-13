@@ -62,7 +62,13 @@ async function ensureInvitation(userId: string) {
 }
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
+  let supabase;
+  try {
+    supabase = await createClient();
+  } catch {
+    redirect("/setup/status");
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -77,7 +83,12 @@ export default async function DashboardPage() {
     user_metadata: { name: user.user_metadata?.name },
   });
 
-  const invitation = await ensureInvitation(user.id);
+  let invitation;
+  try {
+    invitation = await ensureInvitation(user.id);
+  } catch {
+    redirect("/setup/status");
+  }
 
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-10">
