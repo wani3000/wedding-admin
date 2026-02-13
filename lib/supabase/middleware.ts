@@ -3,6 +3,18 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv } from "./env";
 
 export async function updateSession(request: NextRequest) {
+  if (request.nextUrl.pathname === "/" && request.nextUrl.searchParams.has("code")) {
+    const code = request.nextUrl.searchParams.get("code");
+    if (code) {
+      const callbackUrl = request.nextUrl.clone();
+      callbackUrl.pathname = "/auth/callback";
+      callbackUrl.search = "";
+      callbackUrl.searchParams.set("code", code);
+      callbackUrl.searchParams.set("next", "/dashboard");
+      return NextResponse.redirect(callbackUrl);
+    }
+  }
+
   const env = getSupabaseEnv();
 
   if (!env) {
@@ -11,23 +23,29 @@ export async function updateSession(request: NextRequest) {
 
   const response = NextResponse.next({ request });
 
-  const supabase = createServerClient(env.url, env.anonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
+  let user: { id: string } | null = null;
+  try {
+    const supabase = createServerClient(env.url, env.anonKey, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set(name, value);
+            response.cookies.set(name, value, options);
+          });
+        },
       },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          request.cookies.set(name, value);
-          response.cookies.set(name, value, options);
-        });
-      },
-    },
-  });
+    });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    const {
+      data: { user: currentUser },
+    } = await supabase.auth.getUser();
+    user = currentUser;
+  } catch {
+    return response;
+  }
 
   const isProtectedPath =
     request.nextUrl.pathname.startsWith("/dashboard") ||
