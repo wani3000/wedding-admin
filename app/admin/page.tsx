@@ -1,16 +1,9 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 import { createBlankWeddingContent } from "@/lib/content/blank";
-import { VideoHero } from "@/components/sections/VideoHero";
-import { Hero } from "@/components/sections/Hero";
-import { Intro } from "@/components/sections/Intro";
-import { Gallery } from "@/components/sections/Gallery";
-import { Details } from "@/components/sections/Details";
-import { Account } from "@/components/sections/Account";
-import { Footer } from "@/components/sections/Footer";
 import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
 import type { AccountInfo, DetailItem, GalleryImageItem, ImageItem, WeddingContent } from "@/lib/content/types";
 
@@ -1520,21 +1513,30 @@ function AdminPageContent() {
 }
 
 function MobileLivePreview({ content }: { content: WeddingContent }) {
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
+  const postPreviewContent = useCallback(() => {
+    const frameWindow = iframeRef.current?.contentWindow;
+    if (!frameWindow) return;
+    frameWindow.postMessage(
+      { type: "mariecard-live-preview", content },
+      window.location.origin,
+    );
+  }, [content]);
+
+  useEffect(() => {
+    postPreviewContent();
+  }, [postPreviewContent]);
+
   return (
     <div className="mx-auto w-[360px] overflow-hidden rounded-[28px] border-[8px] border-gray-900 bg-white shadow-xl">
-      <div className="h-[640px] overflow-y-auto bg-white">
-        <main className="relative min-h-full text-primary">
-          <VideoHero heroMedia={content.heroMedia} />
-          <div className="relative z-10 bg-white">
-            <Hero title={content.heroSection.title} images={content.heroSection.images} />
-            <Intro content={content.introSection} />
-            <Gallery content={content.gallerySection} routeBasePath="" />
-            <Details content={content.detailsSection} />
-            <Account content={content.accountSection} />
-            <Footer content={content} />
-          </div>
-        </main>
-      </div>
+      <iframe
+        ref={iframeRef}
+        title="모바일 실시간 미리보기"
+        src="/live-preview"
+        className="h-[640px] w-full border-0 bg-white"
+        onLoad={postPreviewContent}
+      />
     </div>
   );
 }
