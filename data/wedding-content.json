@@ -1,0 +1,289 @@
+{
+  "couple": {
+    "groomName": "철완",
+    "brideName": "나라",
+    "displayName": "철완&나라"
+  },
+  "wedding": {
+    "dateLabel": "26년 5월 2일 토요일 오후 12시 30분",
+    "headerLabel": "5월 2일 12:30 노블발렌티 대치"
+  },
+  "heroMedia": {
+    "type": "video",
+    "mobileSrc": "/video/main.mp4",
+    "desktopSrc": "/video/main for web.mp4",
+    "poster": "https://images.unsplash.com/photo-1542352841-526487e4975f?q=80&w=1887&auto=format&fit=crop"
+  },
+  "heroSection": {
+    "title": "7번의 봄을 지나, \n평생의 계절을 \n약속합니다.",
+    "images": [
+      {
+        "src": "/img/section1/1-1.jpg",
+        "alt": "Wedding Photo 1"
+      },
+      {
+        "src": "/img/section1/1-2.jpg",
+        "alt": "Wedding Photo 2"
+      },
+      {
+        "src": "/img/section1/1-3.jpg",
+        "alt": "Wedding Photo 3"
+      },
+      {
+        "src": "/img/section1/1-4.jpg",
+        "alt": "Wedding Photo 4"
+      },
+      {
+        "src": "/img/section1/1-5.jpg",
+        "alt": "Wedding Photo 5"
+      },
+      {
+        "src": "/img/section1/1-6.jpg",
+        "alt": "Wedding Photo 6"
+      }
+    ]
+  },
+  "introSection": {
+    "title": "26년 5월 2일 토요일 \n오후 12시 30분,\n\n서로의 풍경이 \n되어주던 우리가 \n이제 부부가 됩니다.",
+    "description": "7년이라는 긴 시간 동안 서로의 곁을 지키며 같은 곳을 바라보았습니다.\n\n이성적인 듬직함과 감성적인 따뜻함으로 서로의 부족한 점을 채워주며 닮아간 저희 두 사람,\n\n싱그러운 5월의 햇살 아래 사랑의 결실을 맺으려 합니다. 저희의 새로운 시작을 함께 축복해 주시면 감사하겠습니다.",
+    "image": {
+      "src": "/img/section2/2-1.jpg",
+      "alt": "Wedding Photo"
+    }
+  },
+  "gallerySection": {
+    "title": "갤러리",
+    "moreLabel": "갤러리 더보기",
+    "images": [
+      {
+        "src": "/img/gallery/gallery_01.jpg",
+        "alt": "Wedding Photo 01",
+        "title": "Wedding Gallery 01",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_02.jpg",
+        "alt": "Wedding Photo 02",
+        "title": "Wedding Gallery 02",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_03.jpg",
+        "alt": "Wedding Photo 03",
+        "title": "Wedding Gallery 03",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_04.jpg",
+        "alt": "Wedding Photo 04",
+        "title": "Wedding Gallery 04",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_05.jpg",
+        "alt": "Wedding Photo 05",
+        "title": "Wedding Gallery 05",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_06.jpg",
+        "alt": "Wedding Photo 06",
+        "title": "Wedding Gallery 06",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_07.jpg",
+        "alt": "Wedding Photo 07",
+        "title": "Wedding Gallery 07",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_09.jpg",
+        "alt": "Wedding Photo 09",
+        "title": "Wedding Gallery 09",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_10.jpg",
+        "alt": "Wedding Photo 10",
+        "title": "Wedding Gallery 10",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_12.jpg",
+        "alt": "Wedding Photo 12",
+        "title": "Wedding Gallery 12",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_13.jpg",
+        "alt": "Wedding Photo 13",
+        "title": "Wedding Gallery 13",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_14.jpg",
+        "alt": "Wedding Photo 14",
+        "title": "Wedding Gallery 14",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_15.jpg",
+        "alt": "Wedding Photo 15",
+        "title": "Wedding Gallery 15",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_16.jpg",
+        "alt": "Wedding Photo 16",
+        "title": "Wedding Gallery 16",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_17.jpg",
+        "alt": "Wedding Photo 17",
+        "title": "Wedding Gallery 17",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_18.jpg",
+        "alt": "Wedding Photo 18",
+        "title": "Wedding Gallery 18",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_19.jpg",
+        "alt": "Wedding Photo 19",
+        "title": "Wedding Gallery 19",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_20.jpg",
+        "alt": "Wedding Photo 20",
+        "title": "Wedding Gallery 20",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_21.jpg",
+        "alt": "Wedding Photo 21",
+        "title": "Wedding Gallery 21",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_22.jpg",
+        "alt": "Wedding Photo 22",
+        "title": "Wedding Gallery 22",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_23.jpg",
+        "alt": "Wedding Photo 23",
+        "title": "Wedding Gallery 23",
+        "aspect": "aspect-[2/3]"
+      },
+      {
+        "src": "/img/gallery/gallery_24.jpg",
+        "alt": "Wedding Photo 24",
+        "title": "Wedding Gallery 24",
+        "aspect": "aspect-[2/3]"
+      }
+    ]
+  },
+  "detailsSection": {
+    "venueName": "노블발렌티 대치",
+    "venueDescription": "저희가 약속을 맺는 '노블발렌티 대치'는 단독홀로 운영되어, 복잡함 없이 오직 저희 하객분들만 여유롭게 모실 수 있는 공간입니다. 오셔서 맛있는 식사와 함께 자리를 빛내주시면 감사하겠습니다.",
+    "address": "서울 강남구 영동대로 325",
+    "stationDescription": "삼성역에서 590m",
+    "mapLinks": [
+      {
+        "name": "카카오",
+        "icon": "/icon/kakaomap.png",
+        "url": "https://map.kakao.com/link/search/노블발렌티 대치"
+      },
+      {
+        "name": "네이버",
+        "icon": "/icon/navermap.png",
+        "url": "https://map.naver.com/v5/search/노블발렌티 대치"
+      },
+      {
+        "name": "티맵",
+        "icon": "/icon/tmap.png",
+        "url": "tmap://route?goalname=노블발렌티 대치점&goalx=127.0633&goaly=37.5083"
+      }
+    ],
+    "items": [
+      {
+        "title": "지하철",
+        "description": "2호선 삼성역 3번 출구 (도보 10분)\n삼성역 3번 출구 앞에서 셔틀버스가 수시로 운행됩니다."
+      },
+      {
+        "title": "자가용 / 주차",
+        "description": "내비게이션: '노블발렌티 대치점' 또는 'S타워' 검색\n주소: 서울 강남구 영동대로 325 S타워\n건물 내 하객 전용 주차장 이용 (무료 주차 지원)"
+      },
+      {
+        "title": "화환 안내",
+        "description": "예식장의 경건한 분위기를 위해 꽃 화환은 홀 내부 반입이 제한됩니다.\n보내주신 화환은 로비 입구(B1)에 일괄 배치해 드리고 있으니, 축하해 주시는 분들의 너른 양해를 부탁드립니다."
+      },
+      {
+        "title": "피로연 안내",
+        "description": "식사 시간: 12:00 ~ 14:00\n예식 30분 전부터 2시간 동안 넉넉하게 식사하실 수 있습니다."
+      }
+    ]
+  },
+  "accountSection": {
+    "title": "마음 전하실 곳",
+    "descriptionTop": "멀리서도 축하의 마음을 전하고 싶으신 분들을 위해 계좌번호를 안내드립니다.",
+    "descriptionBottom": "소중한 축하를 보내주셔서 감사드리며, 따뜻한 마음에 깊이 감사드립니다.",
+    "groomTitle": "신랑측",
+    "brideTitle": "신부측",
+    "groomAccounts": [
+      {
+        "name": "신랑",
+        "account": "1002048437235",
+        "bank": "우리은행",
+        "holder": "박철완"
+      },
+      {
+        "name": "신랑 아버지",
+        "account": "49104036401012",
+        "bank": "기업은행",
+        "holder": "박동준"
+      },
+      {
+        "name": "신랑 어머니",
+        "account": "07209616212601",
+        "bank": "우리은행",
+        "holder": "조정순"
+      }
+    ],
+    "brideAccounts": [
+      {
+        "name": "신부",
+        "account": "3022100991461",
+        "bank": "농협은행",
+        "holder": "서나라"
+      },
+      {
+        "name": "신부 아버지",
+        "account": "-",
+        "bank": "신한은행",
+        "holder": "서형교"
+      },
+      {
+        "name": "신부 어머니",
+        "account": "-",
+        "bank": "신한은행",
+        "holder": "이스잔"
+      }
+    ]
+  },
+  "share": {
+    "kakaoTitle": "박철완 ♥ 서나라 결혼합니다",
+    "kakaoDescription": "26년 5월 2일 토요일 오후 12시 30분\n노블발렌티 대치",
+    "imageUrl": "/img/1200x630.png",
+    "buttonTitle": "청첩장 보기"
+  },
+  "footer": {
+    "tagline": "7번의 봄을 지나, 평생의 계절을 약속합니다"
+  }
+}
