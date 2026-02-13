@@ -5,5 +5,5 @@ export default async function InvitationAdminRoute({
 }: {
   params: { id: string };
 }) {
-  redirect(`/admin?invitationId=${params.id}`);
+  redirect(`/admin/sample-editor?invitationId=${params.id}`);
 }

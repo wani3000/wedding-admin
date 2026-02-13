@@ -41,8 +41,8 @@ export function Details({ content }: { content: WeddingContent["detailsSection"]
               </p>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-col items-start gap-3 md:flex-row md:items-center md:justify-between">
                 <span className="text-[17px] font-semibold text-gray-600">
                   {content.address}
                 </span>
@@ -70,7 +70,7 @@ export function Details({ content }: { content: WeddingContent["detailsSection"]
               </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-4 md:justify-start md:gap-x-8">
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-4 md:justify-start md:gap-x-8">
               {content.mapLinks.map((link, index) => (
                 <div key={`${link.name}-${index}`} className="flex items-center gap-4">
                   <a
@@ -87,7 +87,7 @@ export function Details({ content }: { content: WeddingContent["detailsSection"]
                         className="object-cover"
                       />
                     </div>
-                    <span className="w-[3.5rem] text-center text-[17px] font-semibold text-gray-600">
+                    <span className="block w-auto text-center text-[16px] font-semibold text-gray-600 md:w-[3.5rem] md:text-[17px]">
                       {link.name}
                     </span>
                   </a>
