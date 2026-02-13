@@ -2,6 +2,74 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ensureInvitationPublicId } from "@/lib/platform/invitations";
+import { DashboardHeader } from "@/components/pages/DashboardHeader";
+
+type InvitationRow = {
+  id: string;
+  user_id: string;
+  title: string;
+  public_id: string | null;
+  status: "draft" | "published" | "archived";
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type ContentRow = {
+  invitation_id: string;
+  version: number;
+  content_json: Record<string, unknown>;
+};
+
+type InvitationCard = InvitationRow & {
+  public_id: string;
+  previewImage: string;
+  fallbackTitle: string;
+};
+
+const OG_FALLBACK = "/img/1200x630.png";
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function asString(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function extractPreviewImage(content: Record<string, unknown>): string {
+  const heroMedia = asRecord(content.heroMedia);
+  const introSection = asRecord(content.introSection);
+  const introImage = asRecord(introSection.image);
+  const heroSection = asRecord(content.heroSection);
+  const heroImages = Array.isArray(heroSection.images) ? heroSection.images : [];
+  const firstHero = heroImages[0] && typeof heroImages[0] === "object"
+    ? (heroImages[0] as Record<string, unknown>)
+    : {};
+
+  return (
+    asString(heroMedia.poster) ||
+    asString(introImage.src) ||
+    asString(firstHero.src) ||
+    OG_FALLBACK
+  );
+}
+
+function extractFallbackTitle(content: Record<string, unknown>): string {
+  const couple = asRecord(content.couple);
+  const displayName = asString(couple.displayName);
+  if (displayName) return displayName;
+
+  const groomName = asString(couple.groomName);
+  const brideName = asString(couple.brideName);
+  if (groomName || brideName) {
+    return `${groomName} ${brideName}`.trim();
+  }
+
+  return "내 초대장";
+}
 
 async function ensureUserProfile(user: {
   id: string;
@@ -17,48 +85,112 @@ async function ensureUserProfile(user: {
   });
 }
 
-async function ensureInvitation(userId: string) {
+async function loadInvitations(userId: string): Promise<InvitationCard[]> {
   const supabase = await createClient();
 
-  const { data: existing, error } = await supabase
+  const { data, error } = await supabase
     .from("invitations")
-    .select("id, public_id")
+    .select("id,user_id,title,public_id,status,published_at,created_at,updated_at")
     .eq("user_id", userId)
-    .limit(1)
-    .maybeSingle();
+    .order("updated_at", { ascending: false });
 
   if (error) {
     throw error;
   }
 
-  if (existing) {
+  const invitations = (data || []) as InvitationRow[];
+  if (invitations.length === 0) return [];
+
+  const normalized: InvitationRow[] = [];
+  for (const invitation of invitations) {
     const publicId = await ensureInvitationPublicId(
       supabase,
-      existing.id,
+      invitation.id,
       userId,
-      existing.public_id,
+      invitation.public_id,
     );
-    return { ...existing, public_id: publicId };
+
+    normalized.push({ ...invitation, public_id: publicId });
   }
 
-  const { data: created, error: insertError } = await supabase
-    .from("invitations")
-    .insert({
-      user_id: userId,
-      title: "",
-      status: "draft",
-    })
-    .select("id, public_id")
-    .single();
+  const invitationIds = normalized.map((item) => item.id);
+  const { data: contentRows } = await supabase
+    .from("invitation_contents")
+    .select("invitation_id,version,content_json")
+    .in("invitation_id", invitationIds)
+    .eq("is_published_snapshot", false)
+    .order("version", { ascending: false });
 
-  if (insertError) throw insertError;
-  const publicId = await ensureInvitationPublicId(
-    supabase,
-    created.id,
-    userId,
-    created.public_id,
+  const latestByInvitation = new Map<string, ContentRow>();
+  (contentRows as ContentRow[] | null || []).forEach((row) => {
+    if (!latestByInvitation.has(row.invitation_id)) {
+      latestByInvitation.set(row.invitation_id, row);
+    }
+  });
+
+  return normalized.map((invitation) => {
+    const content = asRecord(latestByInvitation.get(invitation.id)?.content_json);
+    return {
+      ...invitation,
+      public_id: invitation.public_id || "",
+      previewImage: extractPreviewImage(content),
+      fallbackTitle: extractFallbackTitle(content),
+    };
+  });
+}
+
+function InvitationCardView({
+  invitation,
+  expired,
+}: {
+  invitation: InvitationCard;
+  expired: boolean;
+}) {
+  const title = invitation.title?.trim() || invitation.fallbackTitle;
+  const link = `https://mariecard.com/invitation/${invitation.public_id}`;
+
+  return (
+    <article className="rounded-xl border border-gray-200 bg-white p-4 md:p-5">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex min-w-0 items-center gap-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={invitation.previewImage}
+            alt={`${title} preview`}
+            className="h-24 w-40 rounded-lg border border-gray-200 object-cover"
+          />
+          <div className="min-w-0">
+            <p className="truncate text-lg font-semibold text-gray-900">{title}</p>
+            <p className="mt-1 break-all text-sm text-gray-600">{link}</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/dashboard/invitation/${invitation.id}/admin`}
+            className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white"
+          >
+            사이트 관리
+          </Link>
+          {!expired && (
+            <a
+              href={link}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
+            >
+              공개 링크
+            </a>
+          )}
+          {expired && (
+            <span className="inline-flex items-center rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600">
+              만료됨 (관리 가능)
+            </span>
+          )}
+        </div>
+      </div>
+    </article>
   );
-  return { ...created, public_id: publicId };
 }
 
 export default async function DashboardPage() {
@@ -83,40 +215,85 @@ export default async function DashboardPage() {
     user_metadata: { name: user.user_metadata?.name },
   });
 
-  let invitation;
+  let invitations: InvitationCard[] = [];
   try {
-    invitation = await ensureInvitation(user.id);
+    invitations = await loadInvitations(user.id);
   } catch {
     redirect("/setup/status");
   }
 
+  const activeInvitations = invitations.filter((item) => item.status !== "archived");
+  const expiredInvitations = invitations.filter((item) => item.status === "archived");
+
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-10">
-      <div className="mx-auto max-w-3xl rounded-2xl border border-gray-200 bg-white p-6">
-        <h1 className="text-2xl font-bold text-gray-900">대시보드</h1>
-        <p className="mt-2 text-sm text-gray-600">로그인 완료. 청첩장 관리로 이동할 수 있습니다.</p>
+    <main className="min-h-screen bg-gray-50">
+      <DashboardHeader
+        name={user.user_metadata?.name || ""}
+        email={user.email || ""}
+      />
 
-        <div className="mt-6 space-y-2 rounded-lg border border-gray-200 p-4">
-          <p className="text-sm text-gray-700">내 청첩장 ID: {invitation.id}</p>
-          <p className="text-sm text-gray-700">공개 ID(publicId): {invitation.public_id ?? "미발급"}</p>
-        </div>
-
-        <div className="mt-6 flex flex-wrap gap-2">
+      <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-6 md:py-10">
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-gray-900">내 초대장</h1>
           <Link
-            href={`/dashboard/invitation/${invitation.id}/admin`}
+            href="/dashboard/create"
             className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white"
           >
-            청첩장 관리자 열기
+            초대장 만들기
           </Link>
-          {invitation.public_id && (
-            <Link
-              href={`/invitation/${invitation.public_id}`}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
-            >
-              공개 링크 확인
-            </Link>
-          )}
         </div>
+
+        {invitations.length === 0 ? (
+          <section className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
+            <p className="text-lg font-medium text-gray-700">제작한 초대장이 없어요! 초대장을 만들어보세요.</p>
+            <Link
+              href="/dashboard/create"
+              className="mt-4 inline-flex rounded-lg bg-black px-5 py-2.5 text-sm font-medium text-white"
+            >
+              초대장 만들기
+            </Link>
+          </section>
+        ) : (
+          <div className="space-y-8">
+            <section className="space-y-3">
+              <h2 className="text-xl font-semibold text-gray-900">활성화</h2>
+              {activeInvitations.length === 0 ? (
+                <p className="rounded-xl border border-gray-200 bg-white px-4 py-5 text-sm text-gray-500">
+                  활성화된 초대장이 없습니다.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {activeInvitations.map((invitation) => (
+                    <InvitationCardView
+                      key={invitation.id}
+                      invitation={invitation}
+                      expired={false}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="text-xl font-semibold text-gray-900">만료</h2>
+              {expiredInvitations.length === 0 ? (
+                <p className="rounded-xl border border-gray-200 bg-white px-4 py-5 text-sm text-gray-500">
+                  만료된 초대장이 없습니다.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {expiredInvitations.map((invitation) => (
+                    <InvitationCardView
+                      key={invitation.id}
+                      invitation={invitation}
+                      expired
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+        )}
       </div>
     </main>
   );

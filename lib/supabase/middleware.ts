@@ -47,7 +47,9 @@ export async function updateSession(request: NextRequest) {
     return response;
   }
 
-  const isProtectedPath = request.nextUrl.pathname.startsWith("/dashboard");
+  const isProtectedPath =
+    request.nextUrl.pathname.startsWith("/dashboard") ||
+    request.nextUrl.pathname.startsWith("/mypage");
 
   const isAuthPath = request.nextUrl.pathname.startsWith("/auth");
 

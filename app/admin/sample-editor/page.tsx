@@ -139,6 +139,7 @@ function AdminPageContent() {
   const [invitationMeta, setInvitationMeta] = useState<InvitationMeta | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [publicUrl, setPublicUrl] = useState("");
+  const [reactivating, setReactivating] = useState(false);
 
   const getAdminHeaders = useCallback((): Record<string, string> => {
     if (activeAdminKey === "") return {};
@@ -175,6 +176,12 @@ function AdminPageContent() {
       ? `/api/admin/invitations/${invitationId}/publish`
       : `/api/platform/invitations/${invitationId}/publish`
     : "";
+  const statusEndpoint = isPlatformMode
+    ? isSuperMode
+      ? `/api/admin/invitations/${invitationId}/status`
+      : `/api/platform/invitations/${invitationId}/status`
+    : "";
+  const isReadOnly = isPlatformMode && invitationMeta?.status === "archived" && !isSuperMode;
 
   const loadBackups = async (currentKey: string) => {
     const res = await fetch("/api/admin/backups", {
@@ -286,6 +293,11 @@ function AdminPageContent() {
   };
 
   const handleSave = async (nextContent?: WeddingContent): Promise<boolean> => {
+    if (isReadOnly) {
+      setMessage("만료된 초대장은 수정할 수 없습니다. 상단에서 다시 활성화해 주세요.");
+      return false;
+    }
+
     const basePayload = nextContent ?? content;
     if (!basePayload) return false;
     const payload = withFixedMapLinks(basePayload);
@@ -390,6 +402,7 @@ function AdminPageContent() {
   };
 
   const handleCreatePreview = async () => {
+    if (isReadOnly) return;
     if (!isPlatformMode || !invitationId || !previewEndpoint) return;
     setMessage("");
     const saved = await handleSave();
@@ -410,6 +423,7 @@ function AdminPageContent() {
   };
 
   const handlePublish = async () => {
+    if (isReadOnly) return;
     if (!isPlatformMode || !invitationId || !publishEndpoint) return;
     setMessage("");
     const saved = await handleSave();
@@ -432,6 +446,7 @@ function AdminPageContent() {
   };
 
   const handleOpenInvitation = async () => {
+    if (isReadOnly) return;
     setMessage("");
     const saved = await handleSave();
     if (!saved) return;
@@ -462,6 +477,27 @@ function AdminPageContent() {
     const data = (await res.json()) as { previewUrl: string };
     setPreviewUrl(data.previewUrl);
     window.open(data.previewUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const handleReactivateInvitation = async () => {
+    if (!isPlatformMode || !statusEndpoint) return;
+    setReactivating(true);
+    setMessage("");
+    try {
+      const res = await fetch(statusEndpoint, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAdminHeaders() },
+        body: JSON.stringify({ action: "restore" }),
+      });
+      if (!res.ok) {
+        setMessage("청첩장 재활성화에 실패했습니다.");
+        return;
+      }
+      await loadInvitationMeta();
+      setMessage("청첩장이 다시 활성화되었습니다.");
+    } finally {
+      setReactivating(false);
+    }
   };
 
   if (!isAuthenticated && (!isPlatformMode || isSuperMode)) {
@@ -535,7 +571,7 @@ function AdminPageContent() {
               onClick={() => {
                 void handleSave();
               }}
-              disabled={saving}
+              disabled={saving || isReadOnly}
               className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
               {saving ? "저장 중..." : "전체 저장"}
@@ -544,16 +580,27 @@ function AdminPageContent() {
               <>
                 <button
                   onClick={handleCreatePreview}
+                  disabled={saving || isReadOnly}
                   className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
                 >
                   청첩장 미리보기
                 </button>
                 <button
                   onClick={handlePublish}
+                  disabled={saving || isReadOnly}
                   className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
                 >
                   청첩장 내보내기
                 </button>
+                {isReadOnly && (
+                  <button
+                    onClick={handleReactivateInvitation}
+                    disabled={reactivating}
+                    className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                  >
+                    {reactivating ? "재활성화 중..." : "청첩장 다시 활성화"}
+                  </button>
+                )}
               </>
             )}
             <button
@@ -580,14 +627,14 @@ function AdminPageContent() {
             </button>
             <button
               onClick={handleOpenInvitation}
-              disabled={saving}
+              disabled={saving || isReadOnly}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
             >
               청첩장 보기
             </button>
             <button
               onClick={handleResetToDefault}
-              disabled={saving}
+              disabled={saving || isReadOnly}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-50"
             >
               초기화
@@ -602,6 +649,11 @@ function AdminPageContent() {
                   ? `(내보내기: ${new Date(invitationMeta.published_at).toLocaleString()})`
                   : ""}
               </p>
+              {isReadOnly && (
+                <p className="font-medium text-red-600">
+                  만료된 초대장입니다. 입력 필드는 비활성화되어 있으며 재활성화 후 수정할 수 있습니다.
+                </p>
+              )}
               {previewUrl && (
                 <p className="break-all">
                   미리보기 링크:{" "}
@@ -630,7 +682,7 @@ function AdminPageContent() {
         </header>
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
-          <div className="space-y-5">
+          <fieldset disabled={isReadOnly} className="space-y-5 disabled:opacity-70">
         {!isPlatformMode && (
           <Section title="백업/복구">
             <p className="text-sm text-gray-600">
@@ -1501,7 +1553,7 @@ function AdminPageContent() {
             </button>
           </div>
         </Section>
-          </div>
+          </fieldset>
 
           <aside className="hidden xl:block">
             <div className="sticky top-4 rounded-xl border border-gray-200 bg-white p-4">
@@ -1519,7 +1571,7 @@ function AdminPageContent() {
             onClick={() => {
               void handleSave();
             }}
-            disabled={saving}
+            disabled={saving || isReadOnly}
             className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {saving ? "저장 중..." : "전체 저장하기"}
