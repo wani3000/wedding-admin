@@ -11,8 +11,12 @@ const SCROLL_RESTORE_DELAY = 100;
 
 export function GalleryPageClient({
   images,
+  backHref = "/#gallery",
+  lightboxPath = "/lightbox",
 }: {
   images: GalleryImageItem[];
+  backHref?: string;
+  lightboxPath?: string;
 }) {
   const router = useRouter();
   const [isDesktop, setIsDesktop] = useState(false);
@@ -29,7 +33,7 @@ export function GalleryPageClient({
   }, []);
 
   const handleBack = () => {
-    router.push("/#gallery");
+    router.push(backHref);
     setTimeout(() => {
       const savedPosition = sessionStorage.getItem("mainScrollPosition");
       if (savedPosition) {
@@ -62,7 +66,7 @@ export function GalleryPageClient({
           <div className="grid grid-cols-2 md:grid-cols-3 gap-[2px] items-start">
             {images.map((image, i) => (
               <div key={`${image.src}-${i}`}>
-                <Link href={`/lightbox?index=${i}`}>
+                <Link href={`${lightboxPath}?index=${i}`}>
                   <div className="group cursor-pointer">
                     <div
                       className={`relative w-full overflow-hidden bg-gray-200 ${image.aspect || "aspect-[2/3]"}`}

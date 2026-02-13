@@ -80,7 +80,10 @@ function mapArray<T>(
   return value.map((item, index) => mapper(item, fallback[index] || fallback[0]));
 }
 
-export function normalizeWeddingContent(raw: unknown): WeddingContent {
+export function normalizeWeddingContent(
+  raw: unknown,
+  baseContent: WeddingContent = defaultWeddingContent,
+): WeddingContent {
   const record = asRecord(raw);
 
   const couple = asRecord(record.couple);
@@ -97,125 +100,125 @@ export function normalizeWeddingContent(raw: unknown): WeddingContent {
 
   const merged: WeddingContent = {
     couple: {
-      groomName: asString(couple.groomName, defaultWeddingContent.couple.groomName),
-      brideName: asString(couple.brideName, defaultWeddingContent.couple.brideName),
-      displayName: asString(couple.displayName, defaultWeddingContent.couple.displayName),
+      groomName: asString(couple.groomName, baseContent.couple.groomName),
+      brideName: asString(couple.brideName, baseContent.couple.brideName),
+      displayName: asString(couple.displayName, baseContent.couple.displayName),
     },
     wedding: {
-      dateLabel: asString(wedding.dateLabel, defaultWeddingContent.wedding.dateLabel),
+      dateLabel: asString(wedding.dateLabel, baseContent.wedding.dateLabel),
       headerLabel: asString(
         wedding.headerLabel,
-        defaultWeddingContent.wedding.headerLabel,
+        baseContent.wedding.headerLabel,
       ),
     },
     heroMedia: {
-      type: asMediaType(heroMedia.type, defaultWeddingContent.heroMedia.type),
+      type: asMediaType(heroMedia.type, baseContent.heroMedia.type),
       mobileSrc: asString(
         heroMedia.mobileSrc,
-        defaultWeddingContent.heroMedia.mobileSrc,
+        baseContent.heroMedia.mobileSrc,
       ),
       desktopSrc: asString(
         heroMedia.desktopSrc,
-        defaultWeddingContent.heroMedia.desktopSrc,
+        baseContent.heroMedia.desktopSrc,
       ),
-      poster: asString(heroMedia.poster, defaultWeddingContent.heroMedia.poster),
+      poster: asString(heroMedia.poster, baseContent.heroMedia.poster),
     },
     heroSection: {
-      title: asString(heroSection.title, defaultWeddingContent.heroSection.title),
+      title: asString(heroSection.title, baseContent.heroSection.title),
       images: mapArray(
         heroSection.images,
-        defaultWeddingContent.heroSection.images,
+        baseContent.heroSection.images,
         asImageItem,
       ),
     },
     introSection: {
-      title: asString(introSection.title, defaultWeddingContent.introSection.title),
+      title: asString(introSection.title, baseContent.introSection.title),
       description: asString(
         introSection.description,
-        defaultWeddingContent.introSection.description,
+        baseContent.introSection.description,
       ),
-      image: asImageItem(introImage, defaultWeddingContent.introSection.image),
+      image: asImageItem(introImage, baseContent.introSection.image),
     },
     gallerySection: {
-      title: asString(gallerySection.title, defaultWeddingContent.gallerySection.title),
+      title: asString(gallerySection.title, baseContent.gallerySection.title),
       moreLabel: asString(
         gallerySection.moreLabel,
-        defaultWeddingContent.gallerySection.moreLabel,
+        baseContent.gallerySection.moreLabel,
       ),
       images: mapArray(
         gallerySection.images,
-        defaultWeddingContent.gallerySection.images,
+        baseContent.gallerySection.images,
         asGalleryImageItem,
       ),
     },
     detailsSection: {
       venueName: asString(
         detailsSection.venueName,
-        defaultWeddingContent.detailsSection.venueName,
+        baseContent.detailsSection.venueName,
       ),
       venueDescription: asString(
         detailsSection.venueDescription,
-        defaultWeddingContent.detailsSection.venueDescription,
+        baseContent.detailsSection.venueDescription,
       ),
       address: asString(
         detailsSection.address,
-        defaultWeddingContent.detailsSection.address,
+        baseContent.detailsSection.address,
       ),
       stationDescription: asString(
         detailsSection.stationDescription,
-        defaultWeddingContent.detailsSection.stationDescription,
+        baseContent.detailsSection.stationDescription,
       ),
       mapLinks: mapArray(
         detailsSection.mapLinks,
-        defaultWeddingContent.detailsSection.mapLinks,
+        baseContent.detailsSection.mapLinks,
         asMapLink,
       ),
       items: mapArray(
         detailsSection.items,
-        defaultWeddingContent.detailsSection.items,
+        baseContent.detailsSection.items,
         asDetailItem,
       ),
     },
     accountSection: {
-      title: asString(accountSection.title, defaultWeddingContent.accountSection.title),
+      title: asString(accountSection.title, baseContent.accountSection.title),
       descriptionTop: asString(
         accountSection.descriptionTop,
-        defaultWeddingContent.accountSection.descriptionTop,
+        baseContent.accountSection.descriptionTop,
       ),
       descriptionBottom: asString(
         accountSection.descriptionBottom,
-        defaultWeddingContent.accountSection.descriptionBottom,
+        baseContent.accountSection.descriptionBottom,
       ),
       groomTitle: asString(
         accountSection.groomTitle,
-        defaultWeddingContent.accountSection.groomTitle,
+        baseContent.accountSection.groomTitle,
       ),
       brideTitle: asString(
         accountSection.brideTitle,
-        defaultWeddingContent.accountSection.brideTitle,
+        baseContent.accountSection.brideTitle,
       ),
       groomAccounts: mapArray(
         accountSection.groomAccounts,
-        defaultWeddingContent.accountSection.groomAccounts,
+        baseContent.accountSection.groomAccounts,
         asAccountInfo,
       ),
       brideAccounts: mapArray(
         accountSection.brideAccounts,
-        defaultWeddingContent.accountSection.brideAccounts,
+        baseContent.accountSection.brideAccounts,
         asAccountInfo,
       ),
     },
     share: {
-      kakaoTitle: asString(share.kakaoTitle, defaultWeddingContent.share.kakaoTitle),
+      kakaoTitle: asString(share.kakaoTitle, baseContent.share.kakaoTitle),
       kakaoDescription: asString(
         share.kakaoDescription,
-        defaultWeddingContent.share.kakaoDescription,
+        baseContent.share.kakaoDescription,
       ),
-      imageUrl: asString(share.imageUrl, defaultWeddingContent.share.imageUrl),
-      buttonTitle: asString(share.buttonTitle, defaultWeddingContent.share.buttonTitle),
+      imageUrl: asString(share.imageUrl, baseContent.share.imageUrl),
+      buttonTitle: asString(share.buttonTitle, baseContent.share.buttonTitle),
     },
     footer: {
-      tagline: asString(footer.tagline, defaultWeddingContent.footer.tagline),
+      tagline: asString(footer.tagline, baseContent.footer.tagline),
     },
   };
 
@@ -248,11 +251,11 @@ export function normalizeWeddingContent(raw: unknown): WeddingContent {
   };
 
   if (normalized.heroSection.images.length === 0) {
-    normalized.heroSection.images = defaultWeddingContent.heroSection.images;
+    normalized.heroSection.images = baseContent.heroSection.images;
   }
 
   if (normalized.gallerySection.images.length === 0) {
-    normalized.gallerySection.images = defaultWeddingContent.gallerySection.images;
+    normalized.gallerySection.images = baseContent.gallerySection.images;
   }
 
   return normalized;

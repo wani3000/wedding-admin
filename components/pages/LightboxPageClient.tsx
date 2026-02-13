@@ -7,7 +7,13 @@ import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import type { GalleryImageItem } from "@/lib/content/types";
 
-function LightboxContent({ images }: { images: GalleryImageItem[] }) {
+function LightboxContent({
+  images,
+  lightboxPath,
+}: {
+  images: GalleryImageItem[];
+  lightboxPath: string;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialIndex = parseInt(searchParams.get("index") || "0");
@@ -27,8 +33,8 @@ function LightboxContent({ images }: { images: GalleryImageItem[] }) {
   }, [initialIndex, totalImages]);
 
   useEffect(() => {
-    router.replace(`/lightbox?index=${currentIndex}`, { scroll: false });
-  }, [currentIndex, router]);
+    router.replace(`${lightboxPath}?index=${currentIndex}`, { scroll: false });
+  }, [currentIndex, lightboxPath, router]);
 
   useEffect(() => {
     const checkGradients = () => {
@@ -262,10 +268,16 @@ function LightboxContent({ images }: { images: GalleryImageItem[] }) {
   );
 }
 
-export function LightboxPageClient({ images }: { images: GalleryImageItem[] }) {
+export function LightboxPageClient({
+  images,
+  lightboxPath = "/lightbox",
+}: {
+  images: GalleryImageItem[];
+  lightboxPath?: string;
+}) {
   return (
     <Suspense fallback={<div className="fixed inset-0 bg-white" />}>
-      <LightboxContent images={images} />
+      <LightboxContent images={images} lightboxPath={lightboxPath} />
     </Suspense>
   );
 }

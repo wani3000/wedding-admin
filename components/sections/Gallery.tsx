@@ -8,10 +8,17 @@ import type { WeddingContent } from "@/lib/content/types";
 
 export function Gallery({
   content,
+  routeBasePath = "",
 }: {
   content: WeddingContent["gallerySection"];
+  routeBasePath?: string;
 }) {
   const projects = content.images.slice(0, 6);
+  const galleryHref = routeBasePath ? `${routeBasePath}/gallery` : "/gallery";
+  const lightboxHref = (index: number) =>
+    routeBasePath
+      ? `${routeBasePath}/lightbox?index=${index}`
+      : `/lightbox?index=${index}`;
 
   const handleGalleryClick = () => {
     sessionStorage.setItem("mainScrollPosition", window.scrollY.toString());
@@ -25,7 +32,7 @@ export function Gallery({
       <div className="mx-auto max-w-6xl">
         <ScrollReveal width="100%">
           <Link
-            href="/gallery"
+            href={galleryHref}
             className="block mb-[38px] md:mb-[56px] lg:mb-[70px]"
             onClick={handleGalleryClick}
           >
@@ -63,12 +70,13 @@ export function Gallery({
               project={project}
               index={i}
               onGalleryClick={handleGalleryClick}
+              href={lightboxHref(i)}
             />
           ))}
         </div>
 
         <div className="mt-8 md:mt-10 flex justify-center">
-          <Link href="/gallery" onClick={handleGalleryClick}>
+          <Link href={galleryHref} onClick={handleGalleryClick}>
             <button className="flex items-center gap-2 rounded-full bg-black px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-gray-800">
               {content.moreLabel}
             </button>
@@ -83,10 +91,12 @@ function GalleryItem({
   project,
   index,
   onGalleryClick,
+  href,
 }: {
   project: WeddingContent["gallerySection"]["images"][number];
   index: number;
   onGalleryClick: () => void;
+  href: string;
 }) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
@@ -94,7 +104,7 @@ function GalleryItem({
   return (
     <div>
       <ScrollReveal delay={index * 0.1} width="100%">
-        <Link href={`/lightbox?index=${index}`} onClick={onGalleryClick}>
+        <Link href={href} onClick={onGalleryClick}>
           <div className="group cursor-pointer">
             <div
               className={`relative w-full overflow-hidden bg-gray-200 md:rounded-sm ${project.aspect || "aspect-[2/3]"}`}

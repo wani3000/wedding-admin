@@ -1,6 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { defaultWeddingContent } from "@/lib/content/defaults";
+import { createBlankWeddingContent } from "@/lib/content/blank";
 import type { WeddingContent } from "@/lib/content/types";
 import {
   ContentValidationError,
@@ -40,8 +40,9 @@ export async function getWeddingContent(): Promise<WeddingContent> {
     const normalized = normalizeWeddingContent(parsed);
     return normalized;
   } catch {
-    await saveWeddingContent(defaultWeddingContent);
-    return defaultWeddingContent;
+    const initial = createBlankWeddingContent();
+    await saveWeddingContent(initial);
+    return initial;
   }
 }
 

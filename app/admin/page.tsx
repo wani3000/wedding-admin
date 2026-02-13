@@ -1,8 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { createClient as createSupabaseClient } from "@/lib/supabase/client";
+import { createBlankWeddingContent } from "@/lib/content/blank";
+import { VideoHero } from "@/components/sections/VideoHero";
+import { Hero } from "@/components/sections/Hero";
+import { Intro } from "@/components/sections/Intro";
+import { Gallery } from "@/components/sections/Gallery";
+import { Details } from "@/components/sections/Details";
+import { Account } from "@/components/sections/Account";
+import { Footer } from "@/components/sections/Footer";
 import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
-import type { AccountInfo, DetailItem, GalleryImageItem, ImageItem, MapLink, WeddingContent } from "@/lib/content/types";
+import type { AccountInfo, DetailItem, GalleryImageItem, ImageItem, WeddingContent } from "@/lib/content/types";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -46,18 +56,108 @@ function TextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   );
 }
 
-export default function AdminPage() {
+const ADMIN_LOGIN_ID = "admin";
+const ADMIN_LOGIN_PASSWORD = "123456";
+const PLACEHOLDER_SRC = "/img/placeholder-gray.svg";
+const BANK_OPTIONS = [
+  "우리은행",
+  "신한은행",
+  "케이뱅크",
+  "카카오뱅크",
+  "토스뱅크",
+  "하나은행",
+  "기업은행",
+];
+const FIXED_MAP_LINKS = [
+  { name: "카카오맵", icon: "/icon/kakaomap.png" },
+  { name: "네이버맵", icon: "/icon/navermap.png" },
+  { name: "티맵", icon: "/icon/tmap.png" },
+];
+
+function withFixedMapLinks(content: WeddingContent): WeddingContent {
+  const current = content.detailsSection.mapLinks || [];
+  return {
+    ...content,
+    detailsSection: {
+      ...content.detailsSection,
+      mapLinks: FIXED_MAP_LINKS.map((preset, index) => ({
+        name: preset.name,
+        icon: preset.icon,
+        url: current[index]?.url || "",
+      })),
+    },
+  };
+}
+
+type InvitationMeta = {
+  id: string;
+  public_id: string | null;
+  status: "draft" | "published" | "archived";
+  published_at: string | null;
+};
+
+function ImagePreview({ src, alt }: { src: string; alt: string }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (!src || src.trim() === "") {
+    return (
+      <div className="mt-2 rounded-lg border border-dashed border-gray-300 px-3 py-4 text-xs text-gray-400">
+        이미지 경로를 입력하면 미리보기가 표시됩니다.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2">
+      {hasError ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-4 text-xs text-red-600">
+          이미지를 불러오지 못했습니다: {src}
+        </div>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt={alt || "preview"}
+          className="h-28 w-20 rounded-md border border-gray-200 object-cover"
+          onError={() => setHasError(true)}
+        />
+      )}
+    </div>
+  );
+}
+
+function AdminPageContent() {
+  const searchParams = useSearchParams();
+  const invitationId = searchParams.get("invitationId");
+  const isPlatformMode = invitationId !== null && invitationId !== "";
+
   const [content, setContent] = useState<WeddingContent | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
-  const [adminKeyInput, setAdminKeyInput] = useState("");
+  const [loginId, setLoginId] = useState(ADMIN_LOGIN_ID);
+  const [loginPassword, setLoginPassword] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeAdminKey, setActiveAdminKey] = useState("");
   const [backups, setBackups] = useState<string[]>([]);
+  const [showSavedToast, setShowSavedToast] = useState(false);
+  const [invitationMeta, setInvitationMeta] = useState<InvitationMeta | null>(null);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [publicUrl, setPublicUrl] = useState("");
 
-  const getAdminHeaders = () =>
-    activeAdminKey !== "" ? { "x-admin-key": activeAdminKey } : {};
+  const getAdminHeaders = useCallback((): Record<string, string> => {
+    if (isPlatformMode || activeAdminKey === "") return {};
+    return { "x-admin-key": activeAdminKey };
+  }, [activeAdminKey, isPlatformMode]);
+
+  const contentEndpoint = isPlatformMode
+    ? `/api/platform/invitations/${invitationId}/content`
+    : "/api/admin/content";
+
+  const uploadEndpoint = isPlatformMode
+    ? "/api/platform/upload"
+    : "/api/admin/upload";
 
   const loadBackups = async (currentKey: string) => {
     const res = await fetch("/api/admin/backups", {
@@ -69,28 +169,59 @@ export default function AdminPage() {
     setBackups(data.backups);
   };
 
-  useEffect(() => {
-    const cachedKey = window.localStorage.getItem("adminAccessKey") || "";
-    setAdminKeyInput(cachedKey);
-    setActiveAdminKey(cachedKey);
-  }, []);
+  const loadInvitationMeta = useCallback(async () => {
+    if (!isPlatformMode || !invitationId) return;
+    const res = await fetch(`/api/platform/invitations/${invitationId}/meta`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return;
+    const data = (await res.json()) as InvitationMeta;
+    setInvitationMeta(data);
+    if (data.public_id) {
+      const baseUrl = window.location.origin;
+      setPublicUrl(`${baseUrl}/invitation/${data.public_id}`);
+    }
+  }, [invitationId, isPlatformMode]);
 
   useEffect(() => {
+    if (isPlatformMode) {
+      setIsAuthenticated(true);
+      return;
+    }
+
+    const cachedPin = window.sessionStorage.getItem("adminPin") || "";
+    if (/^\d{6}$/.test(cachedPin)) {
+      setActiveAdminKey(cachedPin);
+      setIsAuthenticated(true);
+    }
+  }, [isPlatformMode]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
     const run = async () => {
+      setLoading(true);
       try {
-        const res = await fetch("/api/admin/content", {
+        const res = await fetch(contentEndpoint, {
           cache: "no-store",
-          headers:
-            activeAdminKey !== "" ? { "x-admin-key": activeAdminKey } : {},
+          headers: getAdminHeaders(),
         });
         if (!res.ok) {
-          setMessage("관리자 인증키를 확인해 주세요.");
+          setMessage(isPlatformMode ? "초대장 접근 권한이 없습니다." : "로그인 정보가 올바르지 않습니다.");
+          if (!isPlatformMode) {
+            setIsAuthenticated(false);
+            window.sessionStorage.removeItem("adminPin");
+          }
           setLoading(false);
           return;
         }
         const data = (await res.json()) as WeddingContent;
-        setContent(data);
-        await loadBackups(activeAdminKey);
+        setContent(withFixedMapLinks(data));
+        if (!isPlatformMode) {
+          await loadBackups(activeAdminKey);
+        } else {
+          await loadInvitationMeta();
+        }
         setLoading(false);
       } catch {
         setMessage("관리자 데이터를 불러오지 못했습니다.");
@@ -98,7 +229,15 @@ export default function AdminPage() {
       }
     };
     run();
-  }, [activeAdminKey]);
+  }, [
+    activeAdminKey,
+    contentEndpoint,
+    getAdminHeaders,
+    isAuthenticated,
+    isPlatformMode,
+    invitationId,
+    loadInvitationMeta,
+  ]);
 
   const ready = useMemo(() => content !== null, [content]);
 
@@ -114,7 +253,7 @@ export default function AdminPage() {
     formData.append("file", file);
     formData.append("folder", folder);
 
-    const res = await fetch("/api/admin/upload", {
+    const res = await fetch(uploadEndpoint, {
       method: "POST",
       headers: getAdminHeaders(),
       body: formData,
@@ -128,17 +267,19 @@ export default function AdminPage() {
     return data.src;
   };
 
-  const handleSave = async () => {
-    if (!content) return;
+  const handleSave = async (nextContent?: WeddingContent): Promise<boolean> => {
+    const basePayload = nextContent ?? content;
+    if (!basePayload) return false;
+    const payload = withFixedMapLinks(basePayload);
 
     setSaving(true);
     setMessage("");
     setErrors([]);
     try {
-      const res = await fetch("/api/admin/content", {
+      const res = await fetch(contentEndpoint, {
         method: "PUT",
         headers: { "Content-Type": "application/json", ...getAdminHeaders() },
-        body: JSON.stringify(content),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const errorData = (await res.json()) as {
@@ -149,17 +290,32 @@ export default function AdminPage() {
         throw new Error(errorData.message || "저장 실패");
       }
       const saved = (await res.json()) as WeddingContent;
-      setContent(saved);
+      setContent(withFixedMapLinks(saved));
       setMessage("저장 완료: 청첩장에 바로 반영됩니다.");
-      await loadBackups(activeAdminKey);
+      setShowSavedToast(true);
+      setTimeout(() => setShowSavedToast(false), 1800);
+      if (!isPlatformMode) {
+        await loadBackups(activeAdminKey);
+      }
+      return true;
     } catch (error) {
       const failMessage =
         error instanceof Error && error.message !== ""
           ? error.message
           : "저장 실패: 다시 시도해 주세요.";
       setMessage(failMessage);
+      return false;
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleResetToDefault = async () => {
+    const resetContent = withFixedMapLinks(createBlankWeddingContent());
+    setContent(resetContent);
+    const saved = await handleSave(resetContent);
+    if (saved) {
+      setMessage("초기화 완료: 기본 샘플 데이터로 되돌렸습니다.");
     }
   };
 
@@ -169,6 +325,28 @@ export default function AdminPage() {
     if (target < 0 || target >= next.length) return next;
     [next[index], next[target]] = [next[target], next[index]];
     return next;
+  };
+
+  const handleLogin = () => {
+    setMessage("");
+    setErrors([]);
+
+    if (loginId.trim() !== ADMIN_LOGIN_ID) {
+      setMessage(`아이디는 ${ADMIN_LOGIN_ID}만 사용할 수 있습니다.`);
+      return;
+    }
+    if (!/^\d{6}$/.test(loginPassword)) {
+      setMessage("비밀번호는 6자리 숫자여야 합니다.");
+      return;
+    }
+    if (loginPassword !== ADMIN_LOGIN_PASSWORD) {
+      setMessage("비밀번호가 올바르지 않습니다.");
+      return;
+    }
+
+    setActiveAdminKey(loginPassword);
+    window.sessionStorage.setItem("adminPin", loginPassword);
+    setIsAuthenticated(true);
   };
 
   const handleRestoreBackup = async (name: string) => {
@@ -193,35 +371,130 @@ export default function AdminPage() {
     }
   };
 
+  const handleCreatePreview = async () => {
+    if (!isPlatformMode || !invitationId) return;
+    setMessage("");
+    const saved = await handleSave();
+    if (!saved) return;
+
+    const res = await fetch(`/api/platform/invitations/${invitationId}/preview`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      setMessage("미리보기 링크 생성에 실패했습니다.");
+      return;
+    }
+
+    const data = (await res.json()) as { previewUrl: string };
+    setPreviewUrl(data.previewUrl);
+    window.open(data.previewUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const handlePublish = async () => {
+    if (!isPlatformMode || !invitationId) return;
+    setMessage("");
+    const saved = await handleSave();
+    if (!saved) return;
+
+    const res = await fetch(`/api/platform/invitations/${invitationId}/publish`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      setMessage("청첩장 내보내기에 실패했습니다.");
+      return;
+    }
+
+    const data = (await res.json()) as { url: string };
+    setPublicUrl(data.url);
+    setMessage("내보내기 완료: 공개 링크가 생성되었습니다.");
+    window.open(data.url, "_blank", "noopener,noreferrer");
+    await loadInvitationMeta();
+  };
+
+  const handleOpenInvitation = async () => {
+    setMessage("");
+    const saved = await handleSave();
+    if (!saved) return;
+
+    if (!isPlatformMode) {
+      window.open("/", "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    const knownPublicId = invitationMeta?.public_id;
+    if (knownPublicId && knownPublicId !== "") {
+      const url = `${window.location.origin}/invitation/${knownPublicId}`;
+      setPublicUrl(url);
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    if (!invitationId) return;
+
+    const res = await fetch(`/api/platform/invitations/${invitationId}/preview`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      setMessage("청첩장 보기 링크 생성에 실패했습니다.");
+      return;
+    }
+    const data = (await res.json()) as { previewUrl: string };
+    setPreviewUrl(data.previewUrl);
+    window.open(data.previewUrl, "_blank", "noopener,noreferrer");
+  };
+
+  if (!isAuthenticated && !isPlatformMode) {
+    return (
+      <main className="min-h-screen bg-gray-50 p-6 md:p-10">
+        <div className="mx-auto max-w-3xl space-y-4 rounded-xl border border-gray-200 bg-white p-5 md:p-6">
+          <h1 className="text-2xl font-bold text-gray-900">청첩장 관리자</h1>
+          <p className="text-sm text-gray-600">로그인 후 관리자 페이지에 진입할 수 있습니다.</p>
+          <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+            <TextInput
+              placeholder="아이디"
+              value={loginId}
+              onChange={(e) => setLoginId(e.target.value)}
+            />
+            <TextInput
+              type="password"
+              placeholder="6자리 숫자 비밀번호 (123456)"
+              value={loginPassword}
+              onChange={(e) => setLoginPassword(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleLogin();
+              }}
+            />
+          </div>
+          <button
+            className="w-full rounded-lg bg-black px-4 py-2 text-sm font-medium text-white"
+            onClick={handleLogin}
+          >
+            관리자 페이지 진입
+          </button>
+          {message && <p className="text-sm text-red-600">{message}</p>}
+        </div>
+      </main>
+    );
+  }
+
   if (!ready || !content) {
     return (
       <main className="min-h-screen bg-gray-50 p-6 md:p-10">
         <div className="mx-auto max-w-3xl space-y-4 rounded-xl border border-gray-200 bg-white p-5 md:p-6">
           <h1 className="text-2xl font-bold text-gray-900">청첩장 관리자</h1>
           <p className="text-sm text-gray-600">
-            {loading
-              ? "관리자 데이터 불러오는 중..."
-              : "관리자 인증키를 입력하고 적용해 주세요."}
+            {loading ? "관리자 데이터 불러오는 중..." : "데이터를 불러오지 못했습니다."}
           </p>
-          <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-            <TextInput
-              type="password"
-              placeholder="관리자 인증키 (ADMIN_ACCESS_KEY)"
-              value={adminKeyInput}
-              onChange={(e) => setAdminKeyInput(e.target.value)}
-            />
-            <button
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
-              onClick={() => {
-                window.localStorage.setItem("adminAccessKey", adminKeyInput);
-                setActiveAdminKey(adminKeyInput);
-                setLoading(true);
-                setMessage("인증키 저장 완료");
-              }}
-            >
-              인증키 저장
-            </button>
-          </div>
+          <button
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
+            onClick={() => {
+              setIsAuthenticated(false);
+              setLoginPassword("");
+              setMessage("");
+            }}
+          >
+            다시 시도
+          </button>
           {message && <p className="text-sm text-gray-700">{message}</p>}
         </div>
       </main>
@@ -229,49 +502,103 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 p-4 md:p-8">
+    <main className="min-h-screen bg-gray-50 p-4 pb-28 md:p-8 md:pb-32">
       <div className="mx-auto max-w-6xl space-y-5">
         <header className="rounded-xl border border-gray-200 bg-white p-5 md:p-6">
           <h1 className="text-2xl font-bold text-gray-900">청첩장 관리자</h1>
           <p className="mt-2 text-sm text-gray-600">
             이 페이지에서 콘텐츠를 수정하고 저장하면 메인 청첩장에 반영됩니다.
           </p>
-          <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
-            <TextInput
-              type="password"
-              placeholder="관리자 인증키 (ADMIN_ACCESS_KEY)"
-              value={adminKeyInput}
-              onChange={(e) => setAdminKeyInput(e.target.value)}
-            />
-            <button
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
-              onClick={() => {
-                window.localStorage.setItem("adminAccessKey", adminKeyInput);
-                setActiveAdminKey(adminKeyInput);
-                setMessage("인증키 저장 완료");
-              }}
-            >
-              인증키 저장
-            </button>
-          </div>
           <div className="mt-4 flex flex-wrap gap-2">
             <button
-              onClick={handleSave}
+              onClick={() => {
+                void handleSave();
+              }}
               disabled={saving}
               className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
               {saving ? "저장 중..." : "전체 저장"}
             </button>
-            <a
-              href="/"
-              target="_blank"
-              rel="noreferrer"
+            {isPlatformMode && (
+              <>
+                <button
+                  onClick={handleCreatePreview}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
+                >
+                  청첩장 미리보기
+                </button>
+                <button
+                  onClick={handlePublish}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
+                >
+                  청첩장 내보내기
+                </button>
+              </>
+            )}
+            <button
+              onClick={async () => {
+                if (isPlatformMode) {
+                  try {
+                    const supabase = createSupabaseClient();
+                    await supabase.auth.signOut();
+                  } catch {
+                    // no-op
+                  }
+                  window.location.href = "/auth/login";
+                  return;
+                }
+                setIsAuthenticated(false);
+                setContent(null);
+                setLoginPassword("");
+                setActiveAdminKey("");
+                window.sessionStorage.removeItem("adminPin");
+              }}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
+            >
+              {isPlatformMode ? "로그인 화면" : "로그아웃"}
+            </button>
+            <button
+              onClick={handleOpenInvitation}
+              disabled={saving}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
             >
               청첩장 보기
-            </a>
+            </button>
+            <button
+              onClick={handleResetToDefault}
+              disabled={saving}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-50"
+            >
+              초기화
+            </button>
             {message && <span className="self-center text-sm text-gray-700">{message}</span>}
           </div>
+          {isPlatformMode && (
+            <div className="mt-3 space-y-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700">
+              <p>
+                상태: {invitationMeta?.status || "draft"}{" "}
+                {invitationMeta?.published_at
+                  ? `(내보내기: ${new Date(invitationMeta.published_at).toLocaleString()})`
+                  : ""}
+              </p>
+              {previewUrl && (
+                <p className="break-all">
+                  미리보기 링크:{" "}
+                  <a className="text-blue-600 underline" href={previewUrl} target="_blank" rel="noreferrer">
+                    {previewUrl}
+                  </a>
+                </p>
+              )}
+              {publicUrl && (
+                <p className="break-all">
+                  공개 링크:{" "}
+                  <a className="text-blue-600 underline" href={publicUrl} target="_blank" rel="noreferrer">
+                    {publicUrl}
+                  </a>
+                </p>
+              )}
+            </div>
+          )}
           {errors.length > 0 && (
             <ul className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {errors.map((error, index) => (
@@ -281,30 +608,34 @@ export default function AdminPage() {
           )}
         </header>
 
-        <Section title="백업/복구">
-          <p className="text-sm text-gray-600">
-            저장 시 자동 백업됩니다. 백업 선택 시 현재 데이터 위에 복원됩니다.
-          </p>
-          <div className="space-y-2">
-            {backups.length === 0 && (
-              <p className="text-sm text-gray-500">백업 파일이 없습니다.</p>
-            )}
-            {backups.map((backup) => (
-              <div
-                key={backup}
-                className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2"
-              >
-                <span className="text-sm text-gray-700">{backup}</span>
-                <button
-                  className="rounded border border-gray-300 px-2 py-1 text-xs"
-                  onClick={() => handleRestoreBackup(backup)}
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
+          <div className="space-y-5">
+        {!isPlatformMode && (
+          <Section title="백업/복구">
+            <p className="text-sm text-gray-600">
+              저장 시 자동 백업됩니다. 백업 선택 시 현재 데이터 위에 복원됩니다.
+            </p>
+            <div className="space-y-2">
+              {backups.length === 0 && (
+                <p className="text-sm text-gray-500">백업 파일이 없습니다.</p>
+              )}
+              {backups.map((backup) => (
+                <div
+                  key={backup}
+                  className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2"
                 >
-                  복원
-                </button>
-              </div>
-            ))}
-          </div>
-        </Section>
+                  <span className="text-sm text-gray-700">{backup}</span>
+                  <button
+                    className="rounded border border-gray-300 px-2 py-1 text-xs"
+                    onClick={() => handleRestoreBackup(backup)}
+                  >
+                    복원
+                  </button>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
 
         <Section title="신랑/신부 이름 및 날짜">
           <div className="grid gap-3 md:grid-cols-2">
@@ -611,43 +942,30 @@ export default function AdminPage() {
           </div>
           <div className="space-y-2">
             <p className="text-sm font-medium text-gray-700">지도 링크</p>
-            {content.detailsSection.mapLinks.map((item, index) => (
+            {FIXED_MAP_LINKS.map((preset, index) => {
+              const item = content.detailsSection.mapLinks[index] || {
+                name: preset.name,
+                icon: preset.icon,
+                url: "",
+              };
+              return (
               <div key={`map-${index}`} className="rounded-lg border border-gray-200 p-3 space-y-2">
-                <div className="grid gap-2 md:grid-cols-3">
-                  <TextInput
-                    placeholder="이름"
-                    value={item.name}
-                    onChange={(e) =>
-                      update((prev) => {
-                        const next = [...prev.detailsSection.mapLinks];
-                        next[index] = { ...next[index], name: e.target.value };
-                        return {
-                          ...prev,
-                          detailsSection: { ...prev.detailsSection, mapLinks: next },
-                        };
-                      })
-                    }
-                  />
-                  <TextInput
-                    placeholder="아이콘 경로"
-                    value={item.icon}
-                    onChange={(e) =>
-                      update((prev) => {
-                        const next = [...prev.detailsSection.mapLinks];
-                        next[index] = { ...next[index], icon: e.target.value };
-                        return {
-                          ...prev,
-                          detailsSection: { ...prev.detailsSection, mapLinks: next },
-                        };
-                      })
-                    }
-                  />
+                <div className="grid gap-2 md:grid-cols-[180px_1fr]">
+                  <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={preset.icon} alt={preset.name} className="h-5 w-5 rounded object-cover" />
+                    <span>{preset.name}</span>
+                  </div>
                   <TextInput
                     placeholder="링크 URL"
                     value={item.url}
                     onChange={(e) =>
                       update((prev) => {
-                        const next = [...prev.detailsSection.mapLinks];
+                        const next = FIXED_MAP_LINKS.map((fixed, i) => ({
+                          name: fixed.name,
+                          icon: fixed.icon,
+                          url: prev.detailsSection.mapLinks[i]?.url || "",
+                        }));
                         next[index] = { ...next[index], url: e.target.value };
                         return {
                           ...prev,
@@ -657,39 +975,9 @@ export default function AdminPage() {
                     }
                   />
                 </div>
-                <button
-                  className="text-xs text-red-600"
-                  onClick={() =>
-                    update((prev) => ({
-                      ...prev,
-                      detailsSection: {
-                        ...prev.detailsSection,
-                        mapLinks: prev.detailsSection.mapLinks.filter((_, i) => i !== index),
-                      },
-                    }))
-                  }
-                >
-                  삭제
-                </button>
               </div>
-            ))}
-            <button
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              onClick={() =>
-                update((prev) => ({
-                  ...prev,
-                  detailsSection: {
-                    ...prev.detailsSection,
-                    mapLinks: [
-                      ...prev.detailsSection.mapLinks,
-                      { name: "", icon: "/icon/kakaomap.png", url: "" } as MapLink,
-                    ],
-                  },
-                }))
-              }
-            >
-              지도 링크 추가
-            </button>
+            );
+            })}
           </div>
 
           <div className="space-y-2">
@@ -759,23 +1047,15 @@ export default function AdminPage() {
         </Section>
 
         <Section title="각 섹션 이미지(추가/삭제/변경)">
-          <Field label="소개 섹션 이미지 경로">
-            <TextInput
-              value={content.introSection.image.src}
-              onChange={(e) =>
-                update((prev) => ({
-                  ...prev,
-                  introSection: {
-                    ...prev.introSection,
-                    image: { ...prev.introSection.image, src: e.target.value },
-                  },
-                }))
-              }
+          <Field label="소개 섹션 이미지">
+            <ImagePreview
+              src={content.introSection.image.src}
+              alt={content.introSection.image.alt}
             />
             <input
               type="file"
               accept="image/*"
-              className="mt-2 block w-full text-xs"
+              className="mt-3 block w-full text-xs"
               onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
@@ -789,41 +1069,26 @@ export default function AdminPage() {
                 }));
               }}
             />
+            <button
+              className="mt-2 rounded border border-red-200 px-2 py-1 text-xs text-red-600"
+              onClick={() =>
+                update((prev) => ({
+                  ...prev,
+                  introSection: {
+                    ...prev.introSection,
+                    image: { ...prev.introSection.image, src: PLACEHOLDER_SRC },
+                  },
+                }))
+              }
+            >
+              파일 삭제
+            </button>
           </Field>
           <div className="space-y-2">
             <p className="text-sm font-medium text-gray-700">히어로 캐러셀 이미지</p>
             {content.heroSection.images.map((img, index) => (
               <div key={`hero-${index}`} className="rounded-lg border border-gray-200 p-3 space-y-2">
-                <div className="grid gap-2 md:grid-cols-2">
-                  <TextInput
-                    placeholder="이미지 경로"
-                    value={img.src}
-                    onChange={(e) =>
-                      update((prev) => {
-                        const next = [...prev.heroSection.images];
-                        next[index] = { ...next[index], src: e.target.value };
-                        return {
-                          ...prev,
-                          heroSection: { ...prev.heroSection, images: next },
-                        };
-                      })
-                    }
-                  />
-                  <TextInput
-                    placeholder="대체 텍스트"
-                    value={img.alt}
-                    onChange={(e) =>
-                      update((prev) => {
-                        const next = [...prev.heroSection.images];
-                        next[index] = { ...next[index], alt: e.target.value };
-                        return {
-                          ...prev,
-                          heroSection: { ...prev.heroSection, images: next },
-                        };
-                      })
-                    }
-                  />
-                </div>
+                <ImagePreview src={img.src} alt={img.alt} />
                 <input
                   type="file"
                   accept="image/*"
@@ -843,6 +1108,21 @@ export default function AdminPage() {
                   }}
                 />
                 <div className="flex gap-2 text-xs">
+                  <button
+                    className="rounded border border-red-200 px-2 py-1 text-red-600"
+                    onClick={() =>
+                      update((prev) => {
+                        const next = [...prev.heroSection.images];
+                        next[index] = { ...next[index], src: PLACEHOLDER_SRC };
+                        return {
+                          ...prev,
+                          heroSection: { ...prev.heroSection, images: next },
+                        };
+                      })
+                    }
+                  >
+                    파일 삭제
+                  </button>
                   <button
                     className="rounded border border-gray-300 px-2 py-1"
                     onClick={() =>
@@ -895,7 +1175,7 @@ export default function AdminPage() {
                   ...prev,
                   heroSection: {
                     ...prev.heroSection,
-                    images: [...prev.heroSection.images, { src: "", alt: "" } as ImageItem],
+                    images: [...prev.heroSection.images, { src: PLACEHOLDER_SRC, alt: "" } as ImageItem],
                   },
                 }))
               }
@@ -933,66 +1213,7 @@ export default function AdminPage() {
 
           {content.gallerySection.images.map((img, index) => (
             <div key={`gallery-${index}`} className="rounded-lg border border-gray-200 p-3 space-y-2">
-              <div className="grid gap-2 md:grid-cols-2">
-                <TextInput
-                  placeholder="이미지 경로"
-                  value={img.src}
-                  onChange={(e) =>
-                    update((prev) => {
-                      const next = [...prev.gallerySection.images];
-                      next[index] = { ...next[index], src: e.target.value };
-                      return {
-                        ...prev,
-                        gallerySection: { ...prev.gallerySection, images: next },
-                      };
-                    })
-                  }
-                />
-                <TextInput
-                  placeholder="이미지 제목"
-                  value={img.title}
-                  onChange={(e) =>
-                    update((prev) => {
-                      const next = [...prev.gallerySection.images];
-                      next[index] = { ...next[index], title: e.target.value };
-                      return {
-                        ...prev,
-                        gallerySection: { ...prev.gallerySection, images: next },
-                      };
-                    })
-                  }
-                />
-              </div>
-              <div className="grid gap-2 md:grid-cols-2">
-                <TextInput
-                  placeholder="대체 텍스트"
-                  value={img.alt}
-                  onChange={(e) =>
-                    update((prev) => {
-                      const next = [...prev.gallerySection.images];
-                      next[index] = { ...next[index], alt: e.target.value };
-                      return {
-                        ...prev,
-                        gallerySection: { ...prev.gallerySection, images: next },
-                      };
-                    })
-                  }
-                />
-                <TextInput
-                  placeholder="비율 클래스 (기본: aspect-[2/3])"
-                  value={img.aspect || ""}
-                  onChange={(e) =>
-                    update((prev) => {
-                      const next = [...prev.gallerySection.images];
-                      next[index] = { ...next[index], aspect: e.target.value };
-                      return {
-                        ...prev,
-                        gallerySection: { ...prev.gallerySection, images: next },
-                      };
-                    })
-                  }
-                />
-              </div>
+              <ImagePreview src={img.src} alt={img.alt} />
               <input
                 type="file"
                 accept="image/*"
@@ -1012,6 +1233,21 @@ export default function AdminPage() {
                 }}
               />
               <div className="flex gap-2 text-xs">
+                <button
+                  className="rounded border border-red-200 px-2 py-1 text-red-600"
+                  onClick={() =>
+                    update((prev) => {
+                      const next = [...prev.gallerySection.images];
+                      next[index] = { ...next[index], src: PLACEHOLDER_SRC };
+                      return {
+                        ...prev,
+                        gallerySection: { ...prev.gallerySection, images: next },
+                      };
+                    })
+                  }
+                >
+                  파일 삭제
+                </button>
                 <button
                   className="rounded border border-gray-300 px-2 py-1"
                   onClick={() =>
@@ -1067,7 +1303,7 @@ export default function AdminPage() {
                   ...prev.gallerySection,
                   images: [
                     ...prev.gallerySection.images,
-                    { src: "", alt: "", title: "", aspect: "aspect-[2/3]" } as GalleryImageItem,
+                    { src: PLACEHOLDER_SRC, alt: "", title: "", aspect: "aspect-[2/3]" } as GalleryImageItem,
                   ],
                 },
               }))
@@ -1244,8 +1480,70 @@ export default function AdminPage() {
             </button>
           </div>
         </Section>
+          </div>
+
+          <aside className="hidden xl:block">
+            <div className="sticky top-4 rounded-xl border border-gray-200 bg-white p-4">
+              <p className="mb-3 text-sm font-medium text-gray-700">모바일 실시간 미리보기</p>
+              <MobileLivePreview content={content} />
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur-sm">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 md:px-8">
+          <span className="text-sm text-gray-600">변경사항을 저장해 주세요.</span>
+          <button
+            onClick={() => {
+              void handleSave();
+            }}
+            disabled={saving}
+            className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          >
+            {saving ? "저장 중..." : "전체 저장하기"}
+          </button>
+        </div>
+      </div>
+
+      <div
+        className={`pointer-events-none fixed bottom-24 left-1/2 z-50 -translate-x-1/2 transform transition-all duration-300 ${
+          showSavedToast ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
+        }`}
+      >
+        <div className="rounded-[300px] bg-black px-6 py-3 text-sm font-medium text-white shadow-lg">
+          저장이 완료되었어요!
+        </div>
       </div>
     </main>
+  );
+}
+
+function MobileLivePreview({ content }: { content: WeddingContent }) {
+  return (
+    <div className="mx-auto w-[360px] overflow-hidden rounded-[28px] border-[8px] border-gray-900 bg-white shadow-xl">
+      <div className="h-[640px] overflow-y-auto bg-white">
+        <main className="relative min-h-full text-primary">
+          <VideoHero heroMedia={content.heroMedia} />
+          <div className="relative z-10 bg-white">
+            <Hero title={content.heroSection.title} images={content.heroSection.images} />
+            <Intro content={content.introSection} />
+            <Gallery content={content.gallerySection} routeBasePath="" />
+            <Details content={content.detailsSection} />
+            <Account content={content.accountSection} />
+            <Footer content={content} />
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-gray-50 p-4 md:p-8" />}>
+      <AdminPageContent />
+    </Suspense>
   );
 }
 
@@ -1266,11 +1564,21 @@ function AccountEditor({
           value={item.name}
           onChange={(e) => onChange({ ...item, name: e.target.value })}
         />
-        <TextInput
-          placeholder="은행"
+        <select
           value={item.bank}
           onChange={(e) => onChange({ ...item, bank: e.target.value })}
-        />
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+        >
+          {!BANK_OPTIONS.includes(item.bank) && item.bank !== "" && (
+            <option value={item.bank}>{item.bank}</option>
+          )}
+          <option value="">은행 선택</option>
+          {BANK_OPTIONS.map((bank) => (
+            <option key={bank} value={bank}>
+              {bank}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="grid gap-2 md:grid-cols-2">
         <TextInput
