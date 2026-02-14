@@ -12,14 +12,16 @@ import type { WeddingContent } from "@/lib/content/types";
 export function InvitationRenderer({
   content,
   routeBasePath = "",
+  previewHeroBlackBox = false,
 }: {
   content: WeddingContent;
   routeBasePath?: string;
+  previewHeroBlackBox?: boolean;
 }) {
   return (
     <main className="relative min-h-screen text-primary">
       <Header content={content} />
-      <VideoHero heroMedia={content.heroMedia} />
+      <VideoHero heroMedia={content.heroMedia} forceBlackBox={previewHeroBlackBox} />
 
       <div className="relative z-10 bg-white">
         <Hero title={content.heroSection.title} images={content.heroSection.images} />

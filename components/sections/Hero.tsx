@@ -44,9 +44,9 @@ export function Hero({ title, images }: { title: string; images: ImageItem[] }) 
   return (
     <section className="relative w-full pt-24 pb-20 md:pt-32 md:pb-24 lg:pt-40 lg:pb-32">
       <div className="mx-auto w-full max-w-[1400px] px-6 md:px-10 lg:px-16">
-        <div className="mb-12 flex flex-col items-start justify-between gap-8 md:mb-16 lg:mb-20 md:flex-row md:items-end">
+        <div className="mb-12 flex flex-col items-center justify-between gap-8 md:mb-16 lg:mb-20">
           <ScrollReveal width="100%">
-            <h1 className="font-serif text-[28px] font-medium leading-[1.33] tracking-tight text-primary md:text-[42px] lg:text-[52px] whitespace-pre-line">
+            <h1 className="w-full text-center font-sans text-[18px] font-medium leading-[1.6] tracking-tight text-primary whitespace-pre-line">
               {title}
             </h1>
           </ScrollReveal>

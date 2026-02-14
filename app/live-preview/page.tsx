@@ -28,4 +28,3 @@ export default function LivePreviewPage() {
 
   return <InvitationRenderer content={content} routeBasePath="" />;
 }
-

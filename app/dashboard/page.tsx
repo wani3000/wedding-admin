@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ensureInvitationPublicId } from "@/lib/platform/invitations";
 import { DashboardHeader } from "@/components/pages/DashboardHeader";
+import { InvitationCardActions } from "@/components/pages/InvitationCardActions";
 
 type InvitationRow = {
   id: string;
@@ -141,13 +142,14 @@ async function loadInvitations(userId: string): Promise<InvitationCard[]> {
 
 function InvitationCardView({
   invitation,
-  expired,
+  section,
 }: {
   invitation: InvitationCard;
-  expired: boolean;
+  section: "active" | "inProgress" | "expired";
 }) {
   const title = invitation.title?.trim() || invitation.fallbackTitle;
   const link = `https://mariecard.com/invitation/${invitation.public_id}`;
+  const isExpired = section === "expired";
 
   return (
     <article className="rounded-xl border border-gray-200 bg-white p-4 md:p-5">
@@ -168,11 +170,16 @@ function InvitationCardView({
         <div className="flex flex-wrap gap-2">
           <Link
             href={`/dashboard/invitation/${invitation.id}/admin`}
+            target="_blank"
+            rel="noreferrer"
             className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white"
           >
-            사이트 관리
+            초대장 관리
           </Link>
-          {!expired && (
+          {section !== "expired" && (
+            <InvitationCardActions invitationId={invitation.id} type={section === "active" ? "active" : "inProgress"} />
+          )}
+          {!isExpired && (
             <a
               href={link}
               target="_blank"
@@ -182,7 +189,7 @@ function InvitationCardView({
               공개 링크
             </a>
           )}
-          {expired && (
+          {isExpired && (
             <span className="inline-flex items-center rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600">
               만료됨 (관리 가능)
             </span>
@@ -222,7 +229,8 @@ export default async function DashboardPage() {
     redirect("/setup/status");
   }
 
-  const activeInvitations = invitations.filter((item) => item.status !== "archived");
+  const activeInvitations = invitations.filter((item) => item.status === "published");
+  const inProgressInvitations = invitations.filter((item) => item.status === "draft");
   const expiredInvitations = invitations.filter((item) => item.status === "archived");
 
   return (
@@ -237,6 +245,8 @@ export default async function DashboardPage() {
           <h1 className="text-3xl font-bold text-gray-900">내 초대장</h1>
           <Link
             href="/dashboard/create"
+            target="_blank"
+            rel="noreferrer"
             className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white"
           >
             초대장 만들기
@@ -248,6 +258,8 @@ export default async function DashboardPage() {
             <p className="text-lg font-medium text-gray-700">제작한 초대장이 없어요! 초대장을 만들어보세요.</p>
             <Link
               href="/dashboard/create"
+              target="_blank"
+              rel="noreferrer"
               className="mt-4 inline-flex rounded-lg bg-black px-5 py-2.5 text-sm font-medium text-white"
             >
               초대장 만들기
@@ -256,7 +268,7 @@ export default async function DashboardPage() {
         ) : (
           <div className="space-y-8">
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold text-gray-900">활성화</h2>
+              <h2 className="text-xl font-semibold text-gray-900">활성화된 초대장</h2>
               {activeInvitations.length === 0 ? (
                 <p className="rounded-xl border border-gray-200 bg-white px-4 py-5 text-sm text-gray-500">
                   활성화된 초대장이 없습니다.
@@ -267,7 +279,7 @@ export default async function DashboardPage() {
                     <InvitationCardView
                       key={invitation.id}
                       invitation={invitation}
-                      expired={false}
+                      section="active"
                     />
                   ))}
                 </div>
@@ -275,7 +287,26 @@ export default async function DashboardPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold text-gray-900">만료</h2>
+              <h2 className="text-xl font-semibold text-gray-900">제작중인 초대장</h2>
+              {inProgressInvitations.length === 0 ? (
+                <p className="rounded-xl border border-gray-200 bg-white px-4 py-5 text-sm text-gray-500">
+                  제작중인 초대장이 없습니다.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {inProgressInvitations.map((invitation) => (
+                    <InvitationCardView
+                      key={invitation.id}
+                      invitation={invitation}
+                      section="inProgress"
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="text-xl font-semibold text-gray-900">만료된 초대장</h2>
               {expiredInvitations.length === 0 ? (
                 <p className="rounded-xl border border-gray-200 bg-white px-4 py-5 text-sm text-gray-500">
                   만료된 초대장이 없습니다.
@@ -286,7 +317,7 @@ export default async function DashboardPage() {
                     <InvitationCardView
                       key={invitation.id}
                       invitation={invitation}
-                      expired
+                      section="expired"
                     />
                   ))}
                 </div>

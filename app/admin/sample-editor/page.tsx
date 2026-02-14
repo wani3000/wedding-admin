@@ -10,14 +10,19 @@ import type { AccountInfo, DetailItem, GalleryImageItem, ImageItem, WeddingConte
 function Section({
   id,
   title,
+  className,
   children,
 }: {
   id?: string;
   title: string;
+  className?: string;
   children: ReactNode;
 }) {
   return (
-    <section id={id} className="scroll-mt-40 rounded-xl border border-gray-200 bg-white p-5 md:p-6">
+    <section
+      id={id}
+      className={`scroll-mt-40 rounded-xl border border-gray-200 bg-white p-5 md:p-6 ${className || ""}`}
+    >
       <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
       <div className="mt-4 space-y-4">{children}</div>
     </section>
@@ -74,6 +79,7 @@ const FIXED_MAP_LINKS = [
   { name: "네이버맵", icon: "/icon/navermap.png" },
   { name: "티맵", icon: "/icon/tmap.png" },
 ];
+const PLATFORM_DRAFT_STORAGE_KEY = "mariecard_platform_draft_v1";
 
 function withFixedMapLinks(content: WeddingContent): WeddingContent {
   const current = content.detailsSection.mapLinks || [];
@@ -132,13 +138,35 @@ type SectionTab = {
   label: string;
 };
 
-function resolveInvitationTitle(content: WeddingContent | null): string {
-  if (!content) return "내 초대장";
-  if (content.share.kakaoTitle.trim() !== "") return content.share.kakaoTitle.trim();
-  if (content.couple.displayName.trim() !== "") return content.couple.displayName.trim();
-  const names = `${content.couple.groomName} ${content.couple.brideName}`.trim();
-  if (names !== "") return names;
-  return "내 초대장";
+const FIRST_SECTION_DEFAULT = {
+  weddingDate: "2026년 2월 14일 토요일 오후 5시",
+  weddingVenue: "라움아트센터",
+  groomSide: "홍길동 • 홍길동의 아들 민준",
+  brideSide: "홍길동 • 홍길동의 딸 서연",
+};
+
+function parseFirstSectionTitle(title: string) {
+  const lines = title.split("\n");
+  return {
+    weddingDate: (lines[0] || "").trim() || FIRST_SECTION_DEFAULT.weddingDate,
+    weddingVenue: (lines[1] || "").trim() || FIRST_SECTION_DEFAULT.weddingVenue,
+    groomSide: (lines[2] || "").trim() || FIRST_SECTION_DEFAULT.groomSide,
+    brideSide: (lines[3] || "").trim() || FIRST_SECTION_DEFAULT.brideSide,
+  };
+}
+
+function buildFirstSectionTitle(fields: {
+  weddingDate: string;
+  weddingVenue: string;
+  groomSide: string;
+  brideSide: string;
+}) {
+  return [
+    fields.weddingDate,
+    fields.weddingVenue,
+    fields.groomSide,
+    fields.brideSide,
+  ].join("\n");
 }
 
 function EditorHeader({
@@ -225,8 +253,10 @@ function EditorHeader({
 }
 
 function AdminPageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const invitationId = searchParams.get("invitationId");
+  const isCreateMode = searchParams.get("mode") === "create";
   const isPlatformMode = invitationId !== null && invitationId !== "";
   const isSuperMode = searchParams.get("super") === "1";
 
@@ -247,13 +277,14 @@ function AdminPageContent() {
   const [reactivating, setReactivating] = useState(false);
   const [profileName, setProfileName] = useState("내 계정");
   const [profileEmail, setProfileEmail] = useState("");
-  const [activeSection, setActiveSection] = useState("section-basic");
+  const [activeSection, setActiveSection] = useState("section-header");
+  const [isLivePreviewVisible, setIsLivePreviewVisible] = useState(false);
 
   const getAdminHeaders = useCallback((): Record<string, string> => {
     if (activeAdminKey === "") return {};
-    if (isPlatformMode && !isSuperMode) return {};
+    if ((isPlatformMode || isCreateMode) && !isSuperMode) return {};
     return { "x-admin-key": activeAdminKey };
-  }, [activeAdminKey, isPlatformMode, isSuperMode]);
+  }, [activeAdminKey, isCreateMode, isPlatformMode, isSuperMode]);
 
   const contentEndpoint = isPlatformMode
     ? isSuperMode
@@ -283,7 +314,9 @@ function AdminPageContent() {
     ? isSuperMode
       ? `/api/admin/invitations/${invitationId}/publish`
       : `/api/platform/invitations/${invitationId}/publish`
-    : "";
+    : isCreateMode
+      ? "/api/platform/invitations/publish"
+      : "";
   const statusEndpoint = isPlatformMode
     ? isSuperMode
       ? `/api/admin/invitations/${invitationId}/status`
@@ -292,17 +325,19 @@ function AdminPageContent() {
   const isReadOnly = isPlatformMode && invitationMeta?.status === "archived" && !isSuperMode;
   const sectionTabs = useMemo<SectionTab[]>(
     () => [
-      { id: "section-basic", label: "기본 설정" },
-      { id: "section-share", label: "공유 문구" },
-      { id: "section-hero", label: "히어로" },
-      { id: "section-guide", label: "안내 문구" },
-      { id: "section-location", label: "오시는 길" },
-      { id: "section-images", label: "섹션 이미지" },
-      { id: "section-gallery", label: "갤러리" },
-      { id: "section-account", label: "계좌번호" },
-      ...(!isPlatformMode ? [{ id: "section-backup", label: "백업/복구" }] : []),
+      { id: "section-header", label: "헤더 영역" },
+      { id: "section-hero", label: "대표이미지 영역" },
+      { id: "section-first", label: "첫번째 영역" },
+      { id: "section-carousel", label: "첫번째 캐러셀 이미지" },
+      { id: "section-guide", label: "안내문구 영역" },
+      { id: "section-intro-image", label: "소개 섹션 이미지" },
+      { id: "section-gallery", label: "갤러리 이미지" },
+      { id: "section-location", label: "장소/오시는길" },
+      { id: "section-account", label: "계좌번호 영역" },
+      { id: "section-footer", label: "푸터 영역" },
+      ...(!isPlatformMode && !isCreateMode ? [{ id: "section-backup", label: "백업/복구" }] : []),
     ],
-    [isPlatformMode],
+    [isCreateMode, isPlatformMode],
   );
 
   const loadBackups = async (currentKey: string) => {
@@ -331,7 +366,7 @@ function AdminPageContent() {
   }, [invitationId, isPlatformMode, metaEndpoint, getAdminHeaders]);
 
   useEffect(() => {
-    if (isPlatformMode && !isSuperMode) {
+    if ((isPlatformMode || isCreateMode) && !isSuperMode) {
       setIsAuthenticated(true);
       return;
     }
@@ -341,12 +376,26 @@ function AdminPageContent() {
       setActiveAdminKey(cachedPin);
       setIsAuthenticated(true);
     }
-  }, [isPlatformMode, isSuperMode]);
+  }, [isCreateMode, isPlatformMode, isSuperMode]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
 
     const run = async () => {
+      if (isCreateMode && !isSuperMode && !isPlatformMode) {
+        setLoading(true);
+        try {
+          const cachedDraft = window.localStorage.getItem(PLATFORM_DRAFT_STORAGE_KEY);
+          const initial = cachedDraft ? (JSON.parse(cachedDraft) as WeddingContent) : createBlankWeddingContent();
+          setContent(withFixedMapLinks(initial));
+        } catch {
+          setContent(withFixedMapLinks(createBlankWeddingContent()));
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
       setLoading(true);
       try {
         const res = await fetch(contentEndpoint, {
@@ -381,8 +430,10 @@ function AdminPageContent() {
     contentEndpoint,
     getAdminHeaders,
     isAuthenticated,
+    isCreateMode,
     isPlatformMode,
     invitationId,
+    isSuperMode,
     loadInvitationMeta,
   ]);
 
@@ -414,6 +465,55 @@ function AdminPageContent() {
     return data.src;
   };
 
+  const extractVideoPosterFile = async (videoFile: File): Promise<File> => {
+    const videoUrl = URL.createObjectURL(videoFile);
+    try {
+      const video = document.createElement("video");
+      video.src = videoUrl;
+      video.muted = true;
+      video.playsInline = true;
+      video.crossOrigin = "anonymous";
+
+      await new Promise<void>((resolve, reject) => {
+        video.onloadedmetadata = () => resolve();
+        video.onerror = () => reject(new Error("video metadata load failed"));
+      });
+
+      // First frame at t=0 is sometimes blank; grab a tiny offset.
+      const targetTime = Math.min(0.1, Math.max(0, (video.duration || 0) - 0.1));
+      video.currentTime = targetTime;
+
+      await new Promise<void>((resolve, reject) => {
+        video.onseeked = () => resolve();
+        video.onerror = () => reject(new Error("video seek failed"));
+      });
+
+      const width = Math.max(1, video.videoWidth || 1);
+      const height = Math.max(1, video.videoHeight || 1);
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("canvas context not available");
+      ctx.drawImage(video, 0, 0, width, height);
+
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (result) => {
+            if (!result) return reject(new Error("poster blob creation failed"));
+            resolve(result);
+          },
+          "image/jpeg",
+          0.9,
+        );
+      });
+
+      return new File([blob], `poster-${Date.now()}.jpg`, { type: "image/jpeg" });
+    } finally {
+      URL.revokeObjectURL(videoUrl);
+    }
+  };
+
   const handleSave = async (nextContent?: WeddingContent): Promise<boolean> => {
     if (isReadOnly) {
       setMessage("만료된 초대장은 수정할 수 없습니다. 상단에서 다시 활성화해 주세요.");
@@ -428,6 +528,15 @@ function AdminPageContent() {
     setMessage("");
     setErrors([]);
     try {
+      if (isCreateMode && !isPlatformMode && !isSuperMode) {
+        window.localStorage.setItem(PLATFORM_DRAFT_STORAGE_KEY, JSON.stringify(payload));
+        setContent(payload);
+        setMessage("임시저장이 완료되었습니다.");
+        setShowSavedToast(true);
+        setTimeout(() => setShowSavedToast(false), 1800);
+        return true;
+      }
+
       const res = await fetch(contentEndpoint, {
         method: "PUT",
         headers: { "Content-Type": "application/json", ...getAdminHeaders() },
@@ -446,7 +555,7 @@ function AdminPageContent() {
       setMessage("저장 완료: 청첩장에 바로 반영됩니다.");
       setShowSavedToast(true);
       setTimeout(() => setShowSavedToast(false), 1800);
-      if (!isPlatformMode) {
+      if (!isPlatformMode && !isCreateMode) {
         await loadBackups(activeAdminKey);
       }
       return true;
@@ -546,59 +655,36 @@ function AdminPageContent() {
 
   const handlePublish = async () => {
     if (isReadOnly) return;
-    if (!isPlatformMode || !invitationId || !publishEndpoint) return;
+    if ((!isPlatformMode && !isCreateMode) || !publishEndpoint) return;
     setMessage("");
-    const saved = await handleSave();
+    if (!content) return;
+    const publishPayload = withFixedMapLinks(content);
+    const saved = await handleSave(publishPayload);
     if (!saved) return;
 
+    const publishBody = isCreateMode && !isPlatformMode ? JSON.stringify(publishPayload) : undefined;
     const res = await fetch(publishEndpoint, {
       method: "POST",
-      headers: getAdminHeaders(),
+      headers: publishBody
+        ? { "Content-Type": "application/json", ...getAdminHeaders() }
+        : getAdminHeaders(),
+      body: publishBody,
     });
     if (!res.ok) {
       setMessage("청첩장 내보내기에 실패했습니다.");
       return;
     }
 
-    const data = (await res.json()) as { url: string };
+    const data = (await res.json()) as { url: string; invitationId?: string };
     setPublicUrl(data.url);
     setMessage("내보내기 완료: 공개 링크가 생성되었습니다.");
     window.open(data.url, "_blank", "noopener,noreferrer");
+    if (isCreateMode && data.invitationId) {
+      window.localStorage.removeItem(PLATFORM_DRAFT_STORAGE_KEY);
+      router.replace(`/dashboard/invitation/${data.invitationId}/admin`);
+      return;
+    }
     await loadInvitationMeta();
-  };
-
-  const handleOpenInvitation = async () => {
-    if (isReadOnly) return;
-    setMessage("");
-    const saved = await handleSave();
-    if (!saved) return;
-
-    if (!isPlatformMode) {
-      window.open("/", "_blank", "noopener,noreferrer");
-      return;
-    }
-
-    const knownPublicId = invitationMeta?.public_id;
-    if (knownPublicId && knownPublicId !== "") {
-      const url = `${window.location.origin}/invitation/${knownPublicId}`;
-      setPublicUrl(url);
-      window.open(url, "_blank", "noopener,noreferrer");
-      return;
-    }
-
-    if (!invitationId || !previewEndpoint) return;
-
-    const res = await fetch(previewEndpoint, {
-      method: "POST",
-      headers: getAdminHeaders(),
-    });
-    if (!res.ok) {
-      setMessage("청첩장 보기 링크 생성에 실패했습니다.");
-      return;
-    }
-    const data = (await res.json()) as { previewUrl: string };
-    setPreviewUrl(data.previewUrl);
-    window.open(data.previewUrl, "_blank", "noopener,noreferrer");
   };
 
   const handleReactivateInvitation = async () => {
@@ -649,7 +735,7 @@ function AdminPageContent() {
   };
 
   useEffect(() => {
-    if (!isAuthenticated || !isPlatformMode || isSuperMode) {
+    if (!isAuthenticated || (!(isPlatformMode || isCreateMode)) || isSuperMode) {
       setProfileName(isSuperMode ? "슈퍼관리자" : "관리자");
       setProfileEmail("");
       return;
@@ -669,7 +755,7 @@ function AdminPageContent() {
     };
 
     void loadUser();
-  }, [isAuthenticated, isPlatformMode, isSuperMode]);
+  }, [isAuthenticated, isCreateMode, isPlatformMode, isSuperMode]);
 
   useEffect(() => {
     if (!ready) return;
@@ -695,13 +781,24 @@ function AdminPageContent() {
     return () => observer.disconnect();
   }, [ready, sectionTabs]);
 
-  const invitationTitle = resolveInvitationTitle(content);
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setIsLivePreviewVisible(mediaQuery.matches);
+    sync();
+    mediaQuery.addEventListener("change", sync);
+    return () => mediaQuery.removeEventListener("change", sync);
+  }, []);
 
-  if (!isAuthenticated && (!isPlatformMode || isSuperMode)) {
+  const firstSectionFields = useMemo(
+    () => parseFirstSectionTitle(content?.heroSection.title || ""),
+    [content?.heroSection.title],
+  );
+
+  if (!isAuthenticated && (!(isPlatformMode || isCreateMode) || isSuperMode)) {
     return (
       <main className="min-h-screen bg-gray-50 p-6 md:p-10">
         <div className="mx-auto max-w-3xl space-y-4 rounded-xl border border-gray-200 bg-white p-5 md:p-6">
-          <h1 className="text-2xl font-bold text-gray-900">내 초대장</h1>
+          <h1 className="text-2xl font-bold text-gray-900">초대장 제작하기</h1>
           <p className="text-sm text-gray-600">로그인 후 관리자 페이지에 진입할 수 있습니다.</p>
           <div className="grid gap-3 md:grid-cols-[1fr_auto]">
             <TextInput
@@ -735,7 +832,7 @@ function AdminPageContent() {
     return (
       <main className="min-h-screen bg-gray-50 p-6 md:p-10">
         <div className="mx-auto max-w-3xl space-y-4 rounded-xl border border-gray-200 bg-white p-5 md:p-6">
-          <h1 className="text-2xl font-bold text-gray-900">내 초대장</h1>
+          <h1 className="text-2xl font-bold text-gray-900">초대장 제작하기</h1>
           <p className="text-sm text-gray-600">
             {loading ? "관리자 데이터 불러오는 중..." : "데이터를 불러오지 못했습니다."}
           </p>
@@ -782,9 +879,11 @@ function AdminPageContent() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl space-y-5 px-4 py-6 pb-28 md:px-6 md:py-8 md:pb-32">
+      <div className="grid min-h-[calc(100vh-116px)] grid-cols-1 lg:grid-cols-2">
+        <section className="border-b border-gray-200 bg-white lg:border-b-0 lg:border-r">
+          <div className="h-[calc(100vh-116px)] overflow-y-auto px-4 py-6 pb-32 md:px-6 md:py-8">
         <header className="rounded-xl border border-gray-200 bg-white p-5 md:p-6">
-          <h1 className="text-2xl font-bold text-gray-900">{invitationTitle}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">초대장 제작하기</h1>
           <p className="mt-2 text-sm text-gray-600">
             이 페이지에서 콘텐츠를 수정하고 저장하면 메인 청첩장에 반영됩니다.
           </p>
@@ -794,23 +893,25 @@ function AdminPageContent() {
                 void handleSave();
               }}
               disabled={saving || isReadOnly}
-              className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-50"
             >
-              {saving ? "저장 중..." : "전체 저장"}
+              {saving ? "저장 중..." : "임시저장"}
             </button>
-            {isPlatformMode && (
+            {(isPlatformMode || isCreateMode) && (
               <>
-                <button
-                  onClick={handleCreatePreview}
-                  disabled={saving || isReadOnly}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
-                >
-                  청첩장 미리보기
-                </button>
+                {!isLivePreviewVisible && isPlatformMode && (
+                  <button
+                    onClick={handleCreatePreview}
+                    disabled={saving || isReadOnly}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
+                  >
+                    청첩장 미리보기
+                  </button>
+                )}
                 <button
                   onClick={handlePublish}
                   disabled={saving || isReadOnly}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
+                  className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                 >
                   청첩장 내보내기
                 </button>
@@ -825,13 +926,6 @@ function AdminPageContent() {
                 )}
               </>
             )}
-            <button
-              onClick={handleOpenInvitation}
-              disabled={saving || isReadOnly}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
-            >
-              청첩장 보기
-            </button>
             <button
               onClick={handleResetToDefault}
               disabled={saving || isReadOnly}
@@ -881,10 +975,9 @@ function AdminPageContent() {
           )}
         </header>
 
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
-          <fieldset disabled={isReadOnly} className="space-y-5 disabled:opacity-70">
-        {!isPlatformMode && (
-          <Section id="section-backup" title="백업/복구">
+          <fieldset disabled={isReadOnly} className="mt-5 flex flex-col gap-5 disabled:opacity-70">
+        {!isPlatformMode && !isCreateMode && (
+          <Section id="section-backup" title="백업/복구" className="order-[110]">
             <p className="text-sm text-gray-600">
               저장 시 자동 백업됩니다. 백업 선택 시 현재 데이터 위에 복원됩니다.
             </p>
@@ -910,55 +1003,20 @@ function AdminPageContent() {
           </Section>
         )}
 
-        <Section id="section-basic" title="신랑/신부 이름 및 날짜">
+        <Section id="section-header" title="헤더 영역" className="order-[10]">
           <div className="grid gap-3 md:grid-cols-2">
-            <Field label="신랑 이름">
+            <Field label="왼쪽 문장">
               <TextInput
-                value={content.couple.groomName}
+                value={content.couple.displayName}
                 onChange={(e) =>
                   update((prev) => ({
                     ...prev,
-                    couple: { ...prev.couple, groomName: e.target.value },
+                    couple: { ...prev.couple, displayName: e.target.value },
                   }))
                 }
               />
             </Field>
-            <Field label="신부 이름">
-              <TextInput
-                value={content.couple.brideName}
-                onChange={(e) =>
-                  update((prev) => ({
-                    ...prev,
-                    couple: { ...prev.couple, brideName: e.target.value },
-                  }))
-                }
-              />
-            </Field>
-          </div>
-          <Field label="표시 이름(헤더/푸터)">
-            <TextInput
-              value={content.couple.displayName}
-              onChange={(e) =>
-                update((prev) => ({
-                  ...prev,
-                  couple: { ...prev.couple, displayName: e.target.value },
-                }))
-              }
-            />
-          </Field>
-          <div className="grid gap-3 md:grid-cols-2">
-            <Field label="날짜 문구 (소개 영역)">
-              <TextInput
-                value={content.wedding.dateLabel}
-                onChange={(e) =>
-                  update((prev) => ({
-                    ...prev,
-                    wedding: { ...prev.wedding, dateLabel: e.target.value },
-                  }))
-                }
-              />
-            </Field>
-            <Field label="헤더 문구 (상단 고정)">
+            <Field label="오른쪽 문장">
               <TextInput
                 value={content.wedding.headerLabel}
                 onChange={(e) =>
@@ -972,49 +1030,74 @@ function AdminPageContent() {
           </div>
         </Section>
 
-        <Section id="section-share" title="공유 문구">
-          <Field label="카카오 공유 타이틀">
-            <TextInput
-              value={content.share.kakaoTitle}
-              onChange={(e) =>
-                update((prev) => ({
-                  ...prev,
-                  share: { ...prev.share, kakaoTitle: e.target.value },
-                }))
-              }
-            />
-          </Field>
-          <Field label="카카오 공유 설명(날짜/장소)">
-            <TextArea
-              rows={3}
-              value={content.share.kakaoDescription}
-              onChange={(e) =>
-                update((prev) => ({
-                  ...prev,
-                  share: { ...prev.share, kakaoDescription: e.target.value },
-                }))
-              }
-            />
-          </Field>
+        <Section id="section-first" title="첫번째 영역" className="order-[30]">
           <div className="grid gap-3 md:grid-cols-2">
-            <Field label="공유 이미지 URL/경로">
+            <Field label="예식 날짜">
               <TextInput
-                value={content.share.imageUrl}
+                value={firstSectionFields.weddingDate}
                 onChange={(e) =>
                   update((prev) => ({
                     ...prev,
-                    share: { ...prev.share, imageUrl: e.target.value },
+                    heroSection: {
+                      ...prev.heroSection,
+                      title: buildFirstSectionTitle({
+                        ...firstSectionFields,
+                        weddingDate: e.target.value,
+                      }),
+                    },
                   }))
                 }
               />
             </Field>
-            <Field label="공유 버튼 문구">
+            <Field label="예식 위치">
               <TextInput
-                value={content.share.buttonTitle}
+                value={firstSectionFields.weddingVenue}
                 onChange={(e) =>
                   update((prev) => ({
                     ...prev,
-                    share: { ...prev.share, buttonTitle: e.target.value },
+                    heroSection: {
+                      ...prev.heroSection,
+                      title: buildFirstSectionTitle({
+                        ...firstSectionFields,
+                        weddingVenue: e.target.value,
+                      }),
+                    },
+                  }))
+                }
+              />
+            </Field>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field label="신랑측">
+              <TextInput
+                value={firstSectionFields.groomSide}
+                onChange={(e) =>
+                  update((prev) => ({
+                    ...prev,
+                    heroSection: {
+                      ...prev.heroSection,
+                      title: buildFirstSectionTitle({
+                        ...firstSectionFields,
+                        groomSide: e.target.value,
+                      }),
+                    },
+                  }))
+                }
+              />
+            </Field>
+            <Field label="신부측">
+              <TextInput
+                value={firstSectionFields.brideSide}
+                onChange={(e) =>
+                  update((prev) => ({
+                    ...prev,
+                    heroSection: {
+                      ...prev.heroSection,
+                      title: buildFirstSectionTitle({
+                        ...firstSectionFields,
+                        brideSide: e.target.value,
+                      }),
+                    },
                   }))
                 }
               />
@@ -1022,21 +1105,7 @@ function AdminPageContent() {
           </div>
         </Section>
 
-        <Section title="푸터 문구">
-          <Field label="푸터 태그라인">
-            <TextInput
-              value={content.footer.tagline}
-              onChange={(e) =>
-                update((prev) => ({
-                  ...prev,
-                  footer: { ...prev.footer, tagline: e.target.value },
-                }))
-              }
-            />
-          </Field>
-        </Section>
-
-        <Section id="section-hero" title="히어로 비디오/이미지">
+        <Section id="section-hero" title="대표이미지 영역(히어로이미지)" className="order-[20]">
           <Field label="타입">
             <select
               value={content.heroMedia.type}
@@ -1046,6 +1115,11 @@ function AdminPageContent() {
                   heroMedia: {
                     ...prev.heroMedia,
                     type: e.target.value as "video" | "image",
+                    // 포스터는 일반 유저 UI에서 수정하지 않는 고정값. (비디오일 때만 사용)
+                    poster:
+                      (e.target.value as "video" | "image") === "video"
+                        ? prev.heroMedia.poster || PLACEHOLDER_SRC
+                        : prev.heroMedia.poster,
                   },
                 }))
               }
@@ -1055,84 +1129,80 @@ function AdminPageContent() {
               <option value="image">이미지</option>
             </select>
           </Field>
-          <div className="grid gap-3 md:grid-cols-2">
-            <Field label="모바일 소스 경로">
-              <TextInput
-                value={content.heroMedia.mobileSrc}
-                onChange={(e) =>
-                  update((prev) => ({
-                    ...prev,
-                    heroMedia: { ...prev.heroMedia, mobileSrc: e.target.value },
-                  }))
-                }
-              />
-              <input
-                type="file"
-                accept="image/*,video/*"
-                className="mt-2 block w-full text-xs"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  const src = await uploadFile(file, "hero");
-                  update((prev) => ({
-                    ...prev,
-                    heroMedia: { ...prev.heroMedia, mobileSrc: src },
-                  }));
-                }}
-              />
-            </Field>
-            <Field label="데스크톱 소스 경로">
-              <TextInput
-                value={content.heroMedia.desktopSrc}
-                onChange={(e) =>
-                  update((prev) => ({
-                    ...prev,
-                    heroMedia: { ...prev.heroMedia, desktopSrc: e.target.value },
-                  }))
-                }
-              />
-              <input
-                type="file"
-                accept="image/*,video/*"
-                className="mt-2 block w-full text-xs"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  const src = await uploadFile(file, "hero");
-                  update((prev) => ({
-                    ...prev,
-                    heroMedia: { ...prev.heroMedia, desktopSrc: src },
-                  }));
-                }}
-              />
-            </Field>
-          </div>
-          <Field label="포스터 이미지(비디오일 때)">
+          <Field label="소스 경로">
             <TextInput
-              value={content.heroMedia.poster}
+              value={content.heroMedia.mobileSrc}
               onChange={(e) =>
                 update((prev) => ({
                   ...prev,
-                  heroMedia: { ...prev.heroMedia, poster: e.target.value },
+                  heroMedia: {
+                    ...prev.heroMedia,
+                    mobileSrc: e.target.value,
+                    desktopSrc: e.target.value,
+                    // 이미지 히어로는 poster도 동일 이미지로 자동 세팅
+                    poster:
+                      prev.heroMedia.type === "image"
+                        ? e.target.value || PLACEHOLDER_SRC
+                        : prev.heroMedia.poster,
+                  },
                 }))
               }
             />
+            <ImagePreview src={content.heroMedia.mobileSrc} alt="hero-source-preview" />
+            <input
+              type="file"
+              accept={content.heroMedia.type === "video" ? "video/*" : "image/*"}
+              className="mt-2 block w-full text-xs"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                try {
+                  const src = await uploadFile(file, "hero");
+                  let poster = content.heroMedia.poster;
+                  if (content.heroMedia.type === "image") {
+                    // 이미지: 포스터는 업로드 이미지로 자동 동일
+                    poster = src;
+                  } else {
+                    // 비디오: 첫 프레임을 캡처해서 포스터로 업로드
+                    const posterFile = await extractVideoPosterFile(file);
+                    poster = await uploadFile(posterFile, "hero");
+                  }
+                  update((prev) => ({
+                    ...prev,
+                    heroMedia: {
+                      ...prev.heroMedia,
+                      mobileSrc: src,
+                      desktopSrc: src,
+                      poster: poster || PLACEHOLDER_SRC,
+                    },
+                  }));
+                  setMessage("대표 이미지가 반영되었습니다.");
+                } catch {
+                  setMessage("대표 이미지 업로드에 실패했습니다.");
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="mt-2 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700"
+              onClick={() =>
+                update((prev) => ({
+                  ...prev,
+                  heroMedia: {
+                    ...prev.heroMedia,
+                    mobileSrc: PLACEHOLDER_SRC,
+                    desktopSrc: PLACEHOLDER_SRC,
+                    poster: PLACEHOLDER_SRC,
+                  },
+                }))
+              }
+            >
+              파일 삭제
+            </button>
           </Field>
         </Section>
 
-        <Section id="section-guide" title="안내문구(타이틀/설명)">
-          <Field label="히어로 타이틀">
-            <TextArea
-              rows={3}
-              value={content.heroSection.title}
-              onChange={(e) =>
-                update((prev) => ({
-                  ...prev,
-                  heroSection: { ...prev.heroSection, title: e.target.value },
-                }))
-              }
-            />
-          </Field>
+        <Section id="section-guide" title="안내문구 영역" className="order-[50]">
           <Field label="소개 타이틀">
             <TextArea
               rows={6}
@@ -1159,7 +1229,7 @@ function AdminPageContent() {
           </Field>
         </Section>
 
-        <Section id="section-location" title="장소/오시는 길">
+        <Section id="section-location" title="장소/오시는길" className="order-[80]">
           <Field label="장소명">
             <TextInput
               value={content.detailsSection.venueName}
@@ -1319,44 +1389,7 @@ function AdminPageContent() {
           </div>
         </Section>
 
-        <Section id="section-images" title="각 섹션 이미지(추가/삭제/변경)">
-          <Field label="소개 섹션 이미지">
-            <ImagePreview
-              src={content.introSection.image.src}
-              alt={content.introSection.image.alt}
-            />
-            <input
-              type="file"
-              accept="image/*"
-              className="mt-3 block w-full text-xs"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                const src = await uploadFile(file, "intro");
-                update((prev) => ({
-                  ...prev,
-                  introSection: {
-                    ...prev.introSection,
-                    image: { ...prev.introSection.image, src },
-                  },
-                }));
-              }}
-            />
-            <button
-              className="mt-2 rounded border border-red-200 px-2 py-1 text-xs text-red-600"
-              onClick={() =>
-                update((prev) => ({
-                  ...prev,
-                  introSection: {
-                    ...prev.introSection,
-                    image: { ...prev.introSection.image, src: PLACEHOLDER_SRC },
-                  },
-                }))
-              }
-            >
-              파일 삭제
-            </button>
-          </Field>
+        <Section id="section-carousel" title="첫번째 캐러셀 이미지" className="order-[40]">
           <div className="space-y-2">
             <p className="text-sm font-medium text-gray-700">히어로 캐러셀 이미지</p>
             {content.heroSection.images.map((img, index) => (
@@ -1458,7 +1491,47 @@ function AdminPageContent() {
           </div>
         </Section>
 
-        <Section id="section-gallery" title="갤러리 (추가/삭제/순서변경/변경)">
+        <Section id="section-intro-image" title="소개 섹션 이미지" className="order-[60]">
+          <Field label="소개 섹션 이미지">
+            <ImagePreview
+              src={content.introSection.image.src}
+              alt={content.introSection.image.alt}
+            />
+            <input
+              type="file"
+              accept="image/*"
+              className="mt-3 block w-full text-xs"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const src = await uploadFile(file, "intro");
+                update((prev) => ({
+                  ...prev,
+                  introSection: {
+                    ...prev.introSection,
+                    image: { ...prev.introSection.image, src },
+                  },
+                }));
+              }}
+            />
+            <button
+              className="mt-2 rounded border border-red-200 px-2 py-1 text-xs text-red-600"
+              onClick={() =>
+                update((prev) => ({
+                  ...prev,
+                  introSection: {
+                    ...prev.introSection,
+                    image: { ...prev.introSection.image, src: PLACEHOLDER_SRC },
+                  },
+                }))
+              }
+            >
+              파일 삭제
+            </button>
+          </Field>
+        </Section>
+
+        <Section id="section-gallery" title="갤러리 이미지" className="order-[70]">
           <div className="space-y-2">
             <Field label="갤러리 타이틀">
               <TextInput
@@ -1586,7 +1659,7 @@ function AdminPageContent() {
           </button>
         </Section>
 
-        <Section id="section-account" title="계좌번호 (입력/수정/삭제)">
+        <Section id="section-account" title="계좌번호 영역" className="order-[90]">
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="섹션 타이틀">
               <TextInput
@@ -1753,28 +1826,43 @@ function AdminPageContent() {
             </button>
           </div>
         </Section>
-          </fieldset>
 
-          <aside className="hidden xl:block">
-            <div className="sticky top-4 rounded-xl border border-gray-200 bg-white p-4">
-              <p className="mb-3 text-sm font-medium text-gray-700">모바일 실시간 미리보기</p>
-              <MobileLivePreview content={content} />
-            </div>
-          </aside>
-        </div>
+        <Section id="section-footer" title="푸터 영역" className="order-[100]">
+          <Field label="푸터 태그라인">
+            <TextInput
+              value={content.footer.tagline}
+              onChange={(e) =>
+                update((prev) => ({
+                  ...prev,
+                  footer: { ...prev.footer, tagline: e.target.value },
+                }))
+              }
+            />
+          </Field>
+        </Section>
+          </fieldset>
+          </div>
+        </section>
+
+        <aside className="hidden bg-gray-200 px-6 py-8 lg:block">
+          <div className="sticky top-6 mx-auto w-full max-w-[560px] rounded-2xl border border-gray-300 bg-[#d8dde3] p-6">
+            <p className="mb-3 text-sm font-medium text-gray-700">모바일 실시간 미리보기</p>
+            <MobileLivePreview content={content} />
+          </div>
+        </aside>
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur-sm">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 md:px-8">
-          <span className="text-sm text-gray-600">변경사항을 저장해 주세요.</span>
+          <span className="text-sm text-gray-600">변경사항을 임시저장해 주세요.</span>
           <button
             onClick={() => {
               void handleSave();
             }}
             disabled={saving || isReadOnly}
-            className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-50"
           >
-            {saving ? "저장 중..." : "전체 저장하기"}
+            {saving ? "저장 중..." : "임시저장하기"}
           </button>
         </div>
       </div>
@@ -1823,8 +1911,8 @@ function MobileLivePreview({ content }: { content: WeddingContent }) {
   const previewFrameStyle = useMemo(
     () =>
       ({
-        width: "min(100%, 393px, calc((100dvh - 180px) * 393 / 852))",
-        aspectRatio: "393 / 852",
+        width: "min(100%, 390px, calc((100dvh - 220px) * 390 / 844))",
+        aspectRatio: "390 / 844",
       }) as const,
     [],
   );

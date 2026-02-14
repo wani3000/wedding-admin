@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
 
@@ -30,11 +29,34 @@ function sanitizeSegment(value: string) {
   return value.replace(/[^a-zA-Z0-9-_]/g, "");
 }
 
+const STORAGE_BUCKET =
+  process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || "invitation-assets";
+
+async function ensureStorageBucket() {
+  const supabase = createServiceClient();
+  const { data: buckets, error } = await supabase.storage.listBuckets();
+  if (error) {
+    throw new Error("스토리지 버킷 목록 조회 실패");
+  }
+
+  const exists = (buckets || []).some((bucket) => bucket.name === STORAGE_BUCKET);
+  if (exists) return;
+
+  const { error: createError } = await supabase.storage.createBucket(STORAGE_BUCKET, {
+    public: true,
+    fileSizeLimit: `${MAX_FILE_SIZE}`,
+  });
+
+  if (createError) {
+    throw new Error("스토리지 버킷 생성 실패");
+  }
+}
+
 export async function POST(request: Request) {
-  const supabase = await createClient();
+  const authClient = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await authClient.auth.getUser();
 
   if (!user) {
     return NextResponse.json({ message: "인증 필요" }, { status: 401 });
@@ -62,7 +84,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const ext = path.extname(file.name).toLowerCase();
+    const ext = file.name.includes(".")
+      ? `.${file.name.split(".").pop()?.toLowerCase() || ""}`
+      : "";
     if (!ALLOWED_EXTENSIONS.has(ext)) {
       return NextResponse.json(
         { message: "지원하지 않는 파일 형식입니다." },
@@ -70,17 +94,36 @@ export async function POST(request: Request) {
       );
     }
 
-    const safeBaseName = sanitizeSegment(path.basename(file.name, ext)) || "upload";
+    const safeBaseName =
+      sanitizeSegment(file.name.replace(ext, "").replace(/\.[^.]+$/, "")) || "upload";
     const fileName = `${Date.now()}-${safeBaseName}${ext}`;
-
-    const uploadDir = path.join(process.cwd(), "public", "uploads", folder);
-    await fs.mkdir(uploadDir, { recursive: true });
-
+    const objectPath = `${user.id}/${folder}/${fileName}`;
     const arrayBuffer = await file.arrayBuffer();
-    await fs.writeFile(path.join(uploadDir, fileName), Buffer.from(arrayBuffer));
+
+    await ensureStorageBucket();
+    const service = createServiceClient();
+    const { error: uploadError } = await service.storage
+      .from(STORAGE_BUCKET)
+      .upload(objectPath, Buffer.from(arrayBuffer), {
+        contentType: file.type,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      return NextResponse.json({ message: "스토리지 업로드 실패" }, { status: 500 });
+    }
+
+    const { data: publicUrlData } = service.storage
+      .from(STORAGE_BUCKET)
+      .getPublicUrl(objectPath);
+
+    const src = publicUrlData.publicUrl;
+    if (!src) {
+      return NextResponse.json({ message: "공개 URL 생성 실패" }, { status: 500 });
+    }
 
     return NextResponse.json({
-      src: `/uploads/${folder}/${fileName}`,
+      src,
     });
   } catch {
     return NextResponse.json(

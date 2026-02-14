@@ -31,6 +31,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local content/admin artifacts
+/data/backups/
+/public/uploads/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

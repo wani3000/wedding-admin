@@ -17,13 +17,13 @@ export function createBlankWeddingContent(): WeddingContent {
 
   return {
     couple: {
-      groomName: "김민준",
-      brideName: "이서연",
+      groomName: "홍길동 • 홍길동의 아들 민준",
+      brideName: "홍길동 • 홍길동의 딸 서연",
       displayName: "민준 & 서연",
     },
     wedding: {
-      dateLabel: "2026년 10월 17일 토요일 오후 1시 00분",
-      headerLabel: "10월 17일 13:00 라움아트센터",
+      dateLabel: "2026년 2월 14일 토요일 오후 5시",
+      headerLabel: "26년 2월 14일 오후 5시",
     },
     heroMedia: {
       type: "image",
@@ -32,7 +32,8 @@ export function createBlankWeddingContent(): WeddingContent {
       poster: PLACEHOLDER,
     },
     heroSection: {
-      title: "두 사람이 하나의 계절이 되는 날,\n함께해 주세요.",
+      title:
+        "2026년 2월 14일 토요일 오후 5시\n라움아트센터\n홍길동 • 홍길동의 아들 민준\n홍길동 • 홍길동의 딸 서연",
       images: heroImages,
     },
     introSection: {
@@ -107,8 +108,8 @@ export function createBlankWeddingContent(): WeddingContent {
       ],
     },
     share: {
-      kakaoTitle: "김민준 ♥ 이서연 결혼합니다",
-      kakaoDescription: "2026년 10월 17일 토요일 오후 1시\n라움아트센터",
+      kakaoTitle: "초대장 제작하기",
+      kakaoDescription: "2026년 2월 14일 토요일 오후 5시\n라움아트센터",
       imageUrl: PLACEHOLDER,
       buttonTitle: "청첩장 보기",
     },

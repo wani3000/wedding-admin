@@ -42,13 +42,13 @@ export function Details({ content }: { content: WeddingContent["detailsSection"]
             </div>
 
             <div className="flex flex-col gap-2">
-              <div className="flex flex-col items-start gap-3 md:flex-row md:items-center md:justify-between">
-                <span className="text-[17px] font-semibold text-gray-600">
+              <div className="flex w-full items-center gap-3">
+                <span className="min-w-0 flex-1 break-keep text-[17px] font-semibold text-gray-600">
                   {content.address}
                 </span>
                 <div
                   onClick={handleCopy}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-all rounded-full bg-black text-white hover:bg-gray-800 cursor-pointer select-none"
+                  className="ml-auto shrink-0 flex items-center gap-1.5 rounded-full bg-black px-3 py-1.5 text-sm font-medium text-white transition-all hover:bg-gray-800 cursor-pointer select-none"
                 >
                   <Copy className="w-3.5 h-3.5" />
                   <span className="font-sans">복사</span>

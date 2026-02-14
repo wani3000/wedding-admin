@@ -100,17 +100,29 @@ export function LandingStart() {
     setError("");
     try {
       const supabase = createClient();
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent("/dashboard")}`;
-      const { error: authError } = await supabase.auth.signInWithOAuth({
+      const authBaseUrl = window.location.origin;
+      const redirectTo = `${authBaseUrl}/auth/callback`;
+      const { data, error: authError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo,
+          skipBrowserRedirect: true,
           queryParams: {
             access_type: "offline",
             prompt: "consent",
           },
         },
       });
+
+      if (data?.url) {
+        try {
+          window.sessionStorage.setItem("mariecard_post_auth_next", "/dashboard");
+        } catch {
+          // ignore
+        }
+        window.location.assign(data.url);
+        return;
+      }
 
       if (authError) {
         setError("Google 로그인 시작에 실패했습니다.");

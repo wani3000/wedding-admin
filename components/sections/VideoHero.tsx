@@ -32,12 +32,20 @@ const SVG_HTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 329.01 20
 
 export function VideoHero({
   heroMedia,
+  forceBlackBox = false,
 }: {
   heroMedia: WeddingContent["heroMedia"];
+  forceBlackBox?: boolean;
 }) {
   const [viewportHeight, setViewportHeight] = useState(0);
   const [mediaSrc, setMediaSrc] = useState(heroMedia.mobileSrc);
   const svgRef = useRef<HTMLDivElement>(null);
+  // IMPORTANT:
+  // - 모바일 미리보기에서 mobileSrc만 업로드했을 때 desktopSrc가 placeholder면 "계속 회색 박스"가 되는 문제가 있었음.
+  // - 그래서 placeholder 판정은 "현재 실제로 렌더할 src(mediaSrc)" 기준으로만 함.
+  // - poster는 video의 썸네일일 뿐이므로 placeholder여도 영상/이미지 표시를 막으면 안 됨.
+  const isPlaceholderHero = mediaSrc.includes("placeholder-gray.svg");
+  const renderHeroPlaceholder = forceBlackBox || isPlaceholderHero;
 
   const animateSvg = useCallback(() => {
     if (!svgRef.current) return;
@@ -119,8 +127,10 @@ export function VideoHero({
         maxHeight: viewportHeight ? `${viewportHeight}px` : "100vh",
       }}
     >
-      <div className="absolute inset-0">
-        {heroMedia.type === "video" ? (
+      <div className="absolute inset-0 z-0">
+        {renderHeroPlaceholder ? (
+          <div className="h-full w-full bg-[#2f2f33]" />
+        ) : heroMedia.type === "video" ? (
           <video
             key={mediaSrc}
             autoPlay
@@ -143,6 +153,14 @@ export function VideoHero({
           />
         )}
       </div>
+
+      {renderHeroPlaceholder && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-end justify-center pb-20">
+          <span className="text-[28px] font-semibold tracking-tight text-[#b9bcc3] md:text-[34px]">
+            첫번째 이미지
+          </span>
+        </div>
+      )}
 
       <div className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center">
         <div ref={svgRef} className="w-[280px] md:w-[320px] lg:w-[380px]" />

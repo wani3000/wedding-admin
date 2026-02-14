@@ -16,18 +16,35 @@ function LoginPageContent() {
 
     try {
       const supabase = createClient();
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+      // IMPORTANT: redirectTo must match Supabase Redirect URLs allowlist exactly.
+      // Avoid appending query params here (e.g. ?next=...) because some allowlists treat it as a mismatch
+      // and fall back to Site URL (often production).
+      const authBaseUrl = window.location.origin;
+      const redirectTo = `${authBaseUrl}/auth/callback`;
 
-      const { error: authError } = await supabase.auth.signInWithOAuth({
+      const { data, error: authError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo,
+          skipBrowserRedirect: true,
           queryParams: {
             access_type: "offline",
             prompt: "consent",
           },
         },
       });
+
+      if (data?.url) {
+        // Preserve requested next path locally; callback route will default to /dashboard if not present.
+        try {
+          window.sessionStorage.setItem("mariecard_post_auth_next", nextPath);
+        } catch {
+          // ignore
+        }
+        // Make the redirect explicit so we can trust the generated URL.
+        window.location.assign(data.url);
+        return;
+      }
 
       if (authError) {
         setError("Google 로그인 시작에 실패했습니다.");
