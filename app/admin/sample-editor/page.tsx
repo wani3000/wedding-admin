@@ -277,7 +277,7 @@ function AdminPageContent() {
   const [reactivating, setReactivating] = useState(false);
   const [profileName, setProfileName] = useState("내 계정");
   const [profileEmail, setProfileEmail] = useState("");
-  const [activeSection, setActiveSection] = useState("section-header");
+  const [activeSection, setActiveSection] = useState("section-share");
   const [isLivePreviewVisible, setIsLivePreviewVisible] = useState(false);
 
   const getAdminHeaders = useCallback((): Record<string, string> => {
@@ -325,6 +325,7 @@ function AdminPageContent() {
   const isReadOnly = isPlatformMode && invitationMeta?.status === "archived" && !isSuperMode;
   const sectionTabs = useMemo<SectionTab[]>(
     () => [
+      { id: "section-share", label: "공유하기 문구" },
       { id: "section-header", label: "헤더 영역" },
       { id: "section-hero", label: "대표이미지 영역" },
       { id: "section-first", label: "첫번째 영역" },
@@ -1002,6 +1003,31 @@ function AdminPageContent() {
             </div>
           </Section>
         )}
+
+        <Section id="section-share" title="공유하기 문구" className="order-[5]">
+          <Field label="제목">
+            <TextInput
+              value={content.share.kakaoTitle}
+              onChange={(e) =>
+                update((prev) => ({
+                  ...prev,
+                  share: { ...prev.share, kakaoTitle: e.target.value },
+                }))
+              }
+            />
+          </Field>
+          <Field label="설명">
+            <TextInput
+              value={content.share.kakaoDescription}
+              onChange={(e) =>
+                update((prev) => ({
+                  ...prev,
+                  share: { ...prev.share, kakaoDescription: e.target.value },
+                }))
+              }
+            />
+          </Field>
+        </Section>
 
         <Section id="section-header" title="헤더 영역" className="order-[10]">
           <div className="grid gap-3 md:grid-cols-2">

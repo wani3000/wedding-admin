@@ -33,7 +33,8 @@ export function DashboardHeader({ name, email }: DashboardHeaderProps) {
     try {
       const supabase = createClient();
       await supabase.auth.signOut();
-      router.replace("/auth/login");
+      // 로그아웃 후 랜딩(홈)으로 이동
+      router.replace("/");
       router.refresh();
     } finally {
       setBusy(false);
