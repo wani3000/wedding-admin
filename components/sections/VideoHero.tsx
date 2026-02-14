@@ -143,14 +143,20 @@ export function VideoHero({
             <source src={mediaSrc} type="video/mp4" />
           </video>
         ) : (
-          <Image
-            src={mediaSrc}
-            alt="hero"
-            fill
-            priority
-            className="object-cover"
-            sizes="100vw"
-          />
+          mediaSrc.startsWith("blob:") || mediaSrc.startsWith("data:") ? (
+            // next/image doesn't support blob/data URLs reliably; use a plain img for local previews.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={mediaSrc} alt="hero" className="h-full w-full object-cover" />
+          ) : (
+            <Image
+              src={mediaSrc}
+              alt="hero"
+              fill
+              priority
+              className="object-cover"
+              sizes="100vw"
+            />
+          )
         )}
       </div>
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { mc } from "@/lib/mariecardStyles";
 
 type InvitationCardActionsProps = {
   invitationId: string;
@@ -62,7 +63,7 @@ export function InvitationCardActions({ invitationId, type }: InvitationCardActi
         type="button"
         onClick={handleExpire}
         disabled={busy}
-        className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 disabled:opacity-50"
+        className={mc.dangerButton}
       >
         만료
       </button>
@@ -74,7 +75,7 @@ export function InvitationCardActions({ invitationId, type }: InvitationCardActi
       type="button"
       onClick={handleDelete}
       disabled={busy}
-      className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 disabled:opacity-50"
+      className={mc.dangerButton}
     >
       삭제
     </button>

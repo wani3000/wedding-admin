@@ -2,13 +2,14 @@
 
 import Image from "next/image";
 import { ScrollReveal } from "../ui/ScrollReveal";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, type PanHandler } from "framer-motion";
 import type { ImageItem } from "@/lib/content/types";
 
 export function Hero({ title, images }: { title: string; images: ImageItem[] }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDesktop, setIsDesktop] = useState(false);
+  const titleLines = useMemo(() => title.split("\n"), [title]);
 
   const heroImages = images.length > 0 ? images : [{ src: "/img/section1/1-1.jpg", alt: "Wedding Photo" }];
   const totalImages = heroImages.length;
@@ -46,8 +47,11 @@ export function Hero({ title, images }: { title: string; images: ImageItem[] }) 
       <div className="mx-auto w-full max-w-[1400px] px-6 md:px-10 lg:px-16">
         <div className="mb-12 flex flex-col items-center justify-between gap-8 md:mb-16 lg:mb-20">
           <ScrollReveal width="100%">
-            <h1 className="w-full text-center font-sans text-[18px] font-medium leading-[1.6] tracking-tight text-primary whitespace-pre-line">
-              {title}
+            <h1 className="w-full text-center font-sans text-[18px] font-medium leading-[1.6] tracking-tight text-primary">
+              <span className="block">{titleLines[0] || ""}</span>
+              <span className="block">{titleLines[1] || ""}</span>
+              <span className="block mt-2">{titleLines[2] || ""}</span>
+              <span className="block">{titleLines[3] || ""}</span>
             </h1>
           </ScrollReveal>
         </div>

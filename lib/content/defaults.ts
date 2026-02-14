@@ -169,5 +169,7 @@ export const defaultWeddingContent: WeddingContent = {
   },
   footer: {
     tagline: "7번의 봄을 지나, 평생의 계절을 약속합니다",
+    nameLine: "철완&나라",
+    dateLine: "26년 5월 2일 토요일 오후 12시 30분",
   },
 };

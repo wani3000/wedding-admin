@@ -8,7 +8,7 @@ export function createBlankWeddingContent(): WeddingContent {
     alt: `section-image-${index + 1}`,
   }));
 
-  const galleryImages = Array.from({ length: 12 }, (_, index) => ({
+  const galleryImages = Array.from({ length: 6 }, (_, index) => ({
     src: PLACEHOLDER,
     alt: `gallery-image-${index + 1}`,
     title: "",
@@ -115,6 +115,8 @@ export function createBlankWeddingContent(): WeddingContent {
     },
     footer: {
       tagline: "함께해 주셔서 감사합니다.",
+      nameLine: "민준&서연",
+      dateLine: "2026년 2월 14일 토요일 오후 5시",
     },
   };
 }

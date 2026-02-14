@@ -85,5 +85,7 @@ export type WeddingContent = {
   };
   footer: {
     tagline: string;
+    nameLine: string;
+    dateLine: string;
   };
 };

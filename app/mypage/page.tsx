@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { mc } from "@/lib/mariecardStyles";
 
 export default async function MyPage() {
   const supabase = await createClient();
@@ -26,7 +27,7 @@ export default async function MyPage() {
 
         <Link
           href="/dashboard"
-          className="mt-6 inline-flex rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
+          className={`mt-6 inline-flex ${mc.secondaryButton}`}
         >
           대시보드로 돌아가기
         </Link>

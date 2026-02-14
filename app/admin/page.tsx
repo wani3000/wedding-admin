@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { mc } from "@/lib/mariecardStyles";
 
 const ADMIN_ID = "admin";
 const ADMIN_PASSWORD = "123456";
@@ -120,7 +121,7 @@ export default function SuperAdminPage() {
           </div>
           <button
             onClick={onLogin}
-            className="mt-4 rounded-lg bg-black px-4 py-2 text-sm font-medium text-white"
+            className={`mt-4 ${mc.primaryButton}`}
           >
             로그인
           </button>
@@ -141,13 +142,13 @@ export default function SuperAdminPage() {
           <div className="mt-4 flex flex-wrap gap-2">
             <a
               href="/admin/sample-editor"
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
+              className={mc.secondaryButton}
             >
               샘플청첩장 수정하기
             </a>
             <button
               onClick={() => void load()}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
+              className={mc.secondaryButton}
             >
               새로고침
             </button>
@@ -159,7 +160,7 @@ export default function SuperAdminPage() {
                 setLoginPassword("");
                 setActiveKey("");
               }}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
+              className={mc.secondaryButton}
             >
               로그아웃
             </button>
@@ -222,26 +223,26 @@ export default function SuperAdminPage() {
                             href={`https://mariecard.com/invitation/${row.public_id}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="rounded border border-gray-300 px-2 py-1 text-xs"
+                            className={mc.secondaryButtonSm}
                           >
                             접속
                           </a>
                         )}
                         <a
                           href={`/admin/sample-editor?invitationId=${row.id}&super=1`}
-                          className="rounded border border-gray-300 px-2 py-1 text-xs"
+                          className={mc.secondaryButtonSm}
                         >
                           수정
                         </a>
                         <button
                           onClick={() => void updateStatus(row.id, "expire")}
-                          className="rounded border border-red-200 px-2 py-1 text-xs text-red-600"
+                          className={mc.dangerButtonSm}
                         >
                           만료
                         </button>
                         <button
                           onClick={() => void updateStatus(row.id, "restore")}
-                          className="rounded border border-green-200 px-2 py-1 text-xs text-green-700"
+                          className={mc.secondaryButtonSm}
                         >
                           복구
                         </button>

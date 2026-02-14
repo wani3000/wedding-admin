@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ensureInvitationPublicId } from "@/lib/platform/invitations";
 import { DashboardHeader } from "@/components/pages/DashboardHeader";
 import { InvitationCardActions } from "@/components/pages/InvitationCardActions";
+import { mc } from "@/lib/mariecardStyles";
 
 type InvitationRow = {
   id: string;
@@ -173,7 +174,7 @@ function InvitationCardView({
             href={`/dashboard/invitation/${invitation.id}/admin`}
             target="_blank"
             rel="noreferrer"
-            className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white"
+            className={mc.primaryButton}
           >
             초대장 관리
           </Link>
@@ -185,13 +186,13 @@ function InvitationCardView({
               href={link}
               target="_blank"
               rel="noreferrer"
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
+              className={mc.secondaryButton}
             >
               공개 링크
             </a>
           )}
           {isExpired && (
-            <span className="inline-flex items-center rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600">
+            <span className="inline-flex items-center rounded-lg border border-[#e8d9cb] px-4 py-2 text-sm text-gray-600">
               만료됨 (관리 가능)
             </span>
           )}
@@ -252,7 +253,7 @@ export default async function DashboardPage() {
             href="/dashboard/create"
             target="_blank"
             rel="noreferrer"
-            className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white"
+            className={mc.primaryButton}
           >
             초대장 만들기
           </Link>
@@ -265,7 +266,7 @@ export default async function DashboardPage() {
               href="/dashboard/create"
               target="_blank"
               rel="noreferrer"
-              className="mt-4 inline-flex rounded-lg bg-black px-5 py-2.5 text-sm font-medium text-white"
+              className={`mt-4 inline-flex ${mc.primaryButton}`}
             >
               초대장 만들기
             </Link>

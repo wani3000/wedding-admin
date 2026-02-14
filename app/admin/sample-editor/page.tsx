@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 import { createBlankWeddingContent } from "@/lib/content/blank";
+import { mc } from "@/lib/mariecardStyles";
 import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
 import type { AccountInfo, DetailItem, GalleryImageItem, ImageItem, WeddingContent } from "@/lib/content/types";
 
@@ -21,7 +22,7 @@ function Section({
   return (
     <section
       id={id}
-      className={`scroll-mt-40 rounded-xl border border-gray-200 bg-white p-5 md:p-6 ${className || ""}`}
+      className={`scroll-mt-40 ${className || ""}`}
     >
       <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
       <div className="mt-4 space-y-4">{children}</div>
@@ -103,8 +104,89 @@ type InvitationMeta = {
   published_at: string | null;
 };
 
-function ImagePreview({ src, alt }: { src: string; alt: string }) {
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const idx = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  const value = bytes / 1024 ** idx;
+  const precision = value >= 100 ? 0 : value >= 10 ? 1 : 2;
+  return `${value.toFixed(precision)} ${units[idx]}`;
+}
+
+function getFileNameFromSrc(src: string) {
+  if (!src) return "";
+  if (src.startsWith("blob:")) return "local-file";
+  if (src.startsWith("data:")) return "inline-data";
+  try {
+    const url = new URL(src, typeof window !== "undefined" ? window.location.origin : "http://localhost");
+    const name = url.pathname.split("/").filter(Boolean).pop() || "";
+    return decodeURIComponent(name);
+  } catch {
+    const clean = src.split("?")[0] || "";
+    return clean.split("/").filter(Boolean).pop() || src;
+  }
+}
+
+async function resolveRemoteSizeBytes(src: string): Promise<number | null> {
+  if (!src) return null;
+  if (src.startsWith("data:")) return null;
+  try {
+    if (src.startsWith("blob:")) {
+      const blob = await fetch(src).then((r) => r.blob());
+      return blob.size;
+    }
+
+    // Range request (0-0) to avoid downloading the whole file.
+    const rangeRes = await fetch(src, {
+      method: "GET",
+      headers: { Range: "bytes=0-0" },
+      cache: "no-store",
+    });
+    const contentRange = rangeRes.headers.get("content-range");
+    if (rangeRes.status === 206 && contentRange && contentRange.includes("/")) {
+      const total = Number(contentRange.split("/").pop());
+      if (Number.isFinite(total) && total > 0) return total;
+    }
+
+    const headRes = await fetch(src, { method: "HEAD", cache: "no-store" });
+    const len = headRes.headers.get("content-length");
+    const n = len ? Number(len) : NaN;
+    if (Number.isFinite(n) && n > 0) return n;
+  } catch {
+    // ignore (CORS / network)
+  }
+  return null;
+}
+
+function ImagePreview({
+  src,
+  alt,
+  meta,
+}: {
+  src: string;
+  alt: string;
+  meta?: { name?: string; sizeBytes?: number | null };
+}) {
   const [hasError, setHasError] = useState(false);
+  const [resolvedSize, setResolvedSize] = useState<number | null>(null);
+  const name = meta?.name || getFileNameFromSrc(src);
+  const sizeBytes = meta?.sizeBytes ?? resolvedSize;
+
+  useEffect(() => {
+    let cancelled = false;
+    setHasError(false);
+    setResolvedSize(null);
+    if (!src || src.trim() === "" || src === PLACEHOLDER_SRC) return;
+    if (meta?.sizeBytes != null) return;
+    void (async () => {
+      const size = await resolveRemoteSizeBytes(src);
+      if (cancelled) return;
+      setResolvedSize(size);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [meta?.sizeBytes, src]);
 
   if (!src || src.trim() === "") {
     return (
@@ -129,6 +211,10 @@ function ImagePreview({ src, alt }: { src: string; alt: string }) {
           onError={() => setHasError(true)}
         />
       )}
+      <div className="mt-1 text-[11px] leading-4 text-gray-500">
+        <div className="truncate">{name}</div>
+        <div>{sizeBytes != null ? formatBytes(sizeBytes) : "-"}</div>
+      </div>
     </div>
   );
 }
@@ -173,10 +259,14 @@ function EditorHeader({
   name,
   email,
   onLogout,
+  center,
+  actions,
 }: {
   name: string;
   email: string;
   onLogout: () => Promise<void> | void;
+  center?: ReactNode;
+  actions?: ReactNode;
 }) {
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -209,48 +299,72 @@ function EditorHeader({
 
   return (
     <header className="border-b border-gray-200 bg-white">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 md:px-6">
-        <a href="/" className="text-lg font-bold text-gray-900">
-          mariecard
-        </a>
-
-        {email ? (
-        <div ref={menuRef} className="relative">
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-4 px-4 md:px-6">
+        <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => setOpen((prev) => !prev)}
-            className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700"
+            aria-label="메뉴"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700"
           >
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-700">
-              {initial}
-            </span>
-            <span className="hidden max-w-[180px] truncate md:block">{name || email}</span>
+            <span className="sr-only">메뉴</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
           </button>
-
-          {open && (
-            <div className="absolute right-0 z-30 mt-2 w-44 rounded-xl border border-gray-200 bg-white p-1 shadow-lg">
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  router.push("/mypage");
-                }}
-                className="block w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-              >
-                마이페이지
-              </button>
-              <button
-                type="button"
-                onClick={handleLogout}
-                disabled={busy}
-                className="block w-full rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:opacity-60"
-              >
-                로그아웃
-              </button>
-            </div>
-          )}
+          <a href="/" className="text-lg font-bold text-[#800532]">
+            mariecard
+          </a>
         </div>
-        ) : null}
+
+        <div className="min-w-0 flex-1">
+          {center ? (
+            <div className="mx-auto flex w-full max-w-xl items-center justify-center">
+              {center}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {actions}
+
+          {email ? (
+            <div ref={menuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setOpen((prev) => !prev)}
+                className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700"
+              >
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-700">
+                  {initial}
+                </span>
+                <span className="hidden max-w-[180px] truncate md:block">{name || email}</span>
+              </button>
+
+              {open && (
+                <div className="absolute right-0 z-30 mt-2 w-44 rounded-xl border border-gray-200 bg-white p-1 shadow-lg">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpen(false);
+                      router.push("/mypage");
+                    }}
+                    className="block w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    마이페이지
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    disabled={busy}
+                    className="block w-full rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:opacity-60"
+                  >
+                    로그아웃
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
       </div>
     </header>
   );
@@ -283,6 +397,7 @@ function AdminPageContent() {
   const [profileEmail, setProfileEmail] = useState("");
   const [activeSection, setActiveSection] = useState("section-share");
   const [isLivePreviewVisible, setIsLivePreviewVisible] = useState(false);
+  const [heroPreviewMeta, setHeroPreviewMeta] = useState<{ name: string; sizeBytes: number } | null>(null);
 
   const getAdminHeaders = useCallback((): Record<string, string> => {
     if (activeAdminKey === "") return {};
@@ -463,7 +578,9 @@ function AdminPageContent() {
     });
 
     if (!res.ok) {
-      throw new Error("업로드 실패");
+      const body = await res.json().catch(() => ({}));
+      const message = typeof body?.message === "string" ? body.message : "업로드 실패";
+      throw new Error(`${message} (HTTP ${res.status})`);
     }
 
     const data = (await res.json()) as { src: string };
@@ -822,7 +939,7 @@ function AdminPageContent() {
             />
           </div>
           <button
-            className="w-full rounded-lg bg-black px-4 py-2 text-sm font-medium text-white"
+            className={mc.primaryButton}
             onClick={handleLogin}
           >
             관리자 페이지 진입
@@ -842,7 +959,7 @@ function AdminPageContent() {
             {loading ? "관리자 데이터 불러오는 중..." : "데이터를 불러오지 못했습니다."}
           </p>
           <button
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
+            className={mc.secondaryButton}
             onClick={() => {
               setIsAuthenticated(false);
               setLoginPassword("");
@@ -863,42 +980,24 @@ function AdminPageContent() {
         name={profileName}
         email={profileEmail}
         onLogout={handleHeaderLogout}
-      />
-
-      <div className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 backdrop-blur-sm">
-        <div className="mx-auto flex w-full max-w-6xl items-center gap-2 overflow-x-auto px-4 py-3 md:px-6">
-          {sectionTabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => scrollToSection(tab.id)}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-sm transition ${
-                activeSection === tab.id
-                  ? "bg-black text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid min-h-[calc(100vh-116px)] grid-cols-1 lg:grid-cols-2">
-        <section className="border-b border-gray-200 bg-white lg:border-b-0 lg:border-r">
-          <div className="h-[calc(100vh-116px)] overflow-y-auto px-4 py-6 pb-32 md:px-6 md:py-8">
-        <header className="rounded-xl border border-gray-200 bg-white p-5 md:p-6">
-          <h1 className="text-2xl font-bold text-gray-900">초대장 제작하기</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            이 페이지에서 콘텐츠를 수정하고 저장하면 메인 청첩장에 반영됩니다.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
+        center={
+          <div className="flex min-w-0 items-center gap-3 text-sm text-gray-600">
+            <span className="hidden whitespace-nowrap md:inline">초대장 제작하기</span>
+            {isPlatformMode ? (
+              <span className="hidden whitespace-nowrap md:inline">
+                상태: <span className="font-medium text-gray-900">{invitationMeta?.status || "draft"}</span>
+              </span>
+            ) : null}
+          </div>
+        }
+        actions={
+          <div className="hidden items-center gap-2 md:flex">
             <button
               onClick={() => {
                 void handleSave();
               }}
               disabled={saving || isReadOnly}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-50"
+              className={mc.secondaryButton}
             >
               {saving ? "저장 중..." : "임시저장"}
             </button>
@@ -908,7 +1007,7 @@ function AdminPageContent() {
                   <button
                     onClick={handleCreatePreview}
                     disabled={saving || isReadOnly}
-                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
+                    className={mc.secondaryButton}
                   >
                     청첩장 미리보기
                   </button>
@@ -916,7 +1015,7 @@ function AdminPageContent() {
                 <button
                   onClick={handlePublish}
                   disabled={saving || isReadOnly}
-                  className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  className={mc.primaryButton}
                 >
                   청첩장 내보내기
                 </button>
@@ -924,7 +1023,7 @@ function AdminPageContent() {
                   <button
                     onClick={handleReactivateInvitation}
                     disabled={reactivating}
-                    className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                    className={mc.primaryButton}
                   >
                     {reactivating ? "재활성화 중..." : "청첩장 다시 활성화"}
                   </button>
@@ -934,51 +1033,69 @@ function AdminPageContent() {
             <button
               onClick={handleResetToDefault}
               disabled={saving || isReadOnly}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-50"
+              className={mc.secondaryButton}
             >
               초기화
             </button>
-            {message && <span className="self-center text-sm text-gray-700">{message}</span>}
           </div>
-          {isPlatformMode && (
-            <div className="mt-3 space-y-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700">
-              <p>
-                상태: {invitationMeta?.status || "draft"}{" "}
-                {invitationMeta?.published_at
-                  ? `(내보내기: ${new Date(invitationMeta.published_at).toLocaleString()})`
-                  : ""}
-              </p>
-              {isReadOnly && (
-                <p className="font-medium text-red-600">
-                  만료된 초대장입니다. 입력 필드는 비활성화되어 있으며 재활성화 후 수정할 수 있습니다.
-                </p>
-              )}
-              {previewUrl && (
-                <p className="break-all">
-                  미리보기 링크:{" "}
-                  <a className="text-blue-600 underline" href={previewUrl} target="_blank" rel="noreferrer">
-                    {previewUrl}
-                  </a>
-                </p>
-              )}
-              {publicUrl && (
-                <p className="break-all">
-                  공개 링크:{" "}
-                  <a className="text-blue-600 underline" href={publicUrl} target="_blank" rel="noreferrer">
-                    {publicUrl}
-                  </a>
-                </p>
-              )}
-            </div>
-          )}
-          {errors.length > 0 && (
-            <ul className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {errors.map((error, index) => (
-                <li key={`${error}-${index}`}>- {error}</li>
-              ))}
-            </ul>
-          )}
-        </header>
+        }
+      />
+
+      <div className="grid min-h-[calc(100vh-116px)] grid-cols-1 lg:grid-cols-2">
+        <section className="border-b border-gray-200 bg-white lg:border-b-0 lg:border-r">
+          <div className="h-[calc(100vh-116px)] overflow-y-auto px-4 py-6 pb-32 md:px-6 md:py-8">
+            {(message || errors.length > 0 || previewUrl || publicUrl || (isPlatformMode && isReadOnly)) && (
+              <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-700">
+                {message ? <p className="font-medium text-gray-800">{message}</p> : null}
+                {isPlatformMode && isReadOnly ? (
+                  <p className="mt-2 font-medium text-[#800532]">
+                    만료된 초대장입니다. 입력 필드는 비활성화되어 있으며 재활성화 후 수정할 수 있습니다.
+                  </p>
+                ) : null}
+                {previewUrl ? (
+                  <p className="mt-2 break-all">
+                    미리보기 링크:{" "}
+                    <a className="text-blue-600 underline" href={previewUrl} target="_blank" rel="noreferrer">
+                      {previewUrl}
+                    </a>
+                  </p>
+                ) : null}
+                {publicUrl ? (
+                  <p className="mt-2 break-all">
+                    공개 링크:{" "}
+                    <a className="text-blue-600 underline" href={publicUrl} target="_blank" rel="noreferrer">
+                      {publicUrl}
+                    </a>
+                  </p>
+                ) : null}
+                {errors.length > 0 && (
+                  <ul className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {errors.map((error, index) => (
+                      <li key={`${error}-${index}`}>- {error}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+        <div className="sticky top-0 z-20 -mx-4 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur-sm md:-mx-6 md:px-6">
+          <div className="flex items-center gap-2 overflow-x-auto">
+            {sectionTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => scrollToSection(tab.id)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-sm transition ${
+                  activeSection === tab.id
+                    ? mc.pillActive
+                    : mc.pill
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
           <fieldset disabled={isReadOnly} className="mt-5 flex flex-col gap-5 disabled:opacity-70">
         {!isPlatformMode && !isCreateMode && (
@@ -997,7 +1114,7 @@ function AdminPageContent() {
                 >
                   <span className="text-sm text-gray-700">{backup}</span>
                   <button
-                    className="rounded border border-gray-300 px-2 py-1 text-xs"
+                    className={mc.secondaryButtonSm}
                     onClick={() => handleRestoreBackup(backup)}
                   >
                     복원
@@ -1062,7 +1179,7 @@ function AdminPageContent() {
 
         <Section id="section-first" title="첫번째 영역" className="order-[30]">
           <div className="grid gap-3 md:grid-cols-2">
-            <Field label="예식 날짜">
+            <Field label="첫번째 문장">
               <TextInput
                 value={firstSectionFields.weddingDate}
                 onChange={(e) =>
@@ -1079,7 +1196,7 @@ function AdminPageContent() {
                 }
               />
             </Field>
-            <Field label="예식 위치">
+            <Field label="두번째 문장">
               <TextInput
                 value={firstSectionFields.weddingVenue}
                 onChange={(e) =>
@@ -1098,7 +1215,7 @@ function AdminPageContent() {
             </Field>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
-            <Field label="신랑측">
+            <Field label="세번째 문장">
               <TextInput
                 value={firstSectionFields.groomSide}
                 onChange={(e) =>
@@ -1115,7 +1232,7 @@ function AdminPageContent() {
                 }
               />
             </Field>
-            <Field label="신부측">
+            <Field label="네번째 문장">
               <TextInput
                 value={firstSectionFields.brideSide}
                 onChange={(e) =>
@@ -1159,26 +1276,12 @@ function AdminPageContent() {
               <option value="image">이미지</option>
             </select>
           </Field>
-          <Field label="소스 경로">
-            <TextInput
-              value={content.heroMedia.mobileSrc}
-              onChange={(e) =>
-                update((prev) => ({
-                  ...prev,
-                  heroMedia: {
-                    ...prev.heroMedia,
-                    mobileSrc: e.target.value,
-                    desktopSrc: e.target.value,
-                    // 이미지 히어로는 poster도 동일 이미지로 자동 세팅
-                    poster:
-                      prev.heroMedia.type === "image"
-                        ? e.target.value || PLACEHOLDER_SRC
-                        : prev.heroMedia.poster,
-                  },
-                }))
-              }
+          <Field label="파일">
+            <ImagePreview
+              src={content.heroMedia.mobileSrc}
+              alt="hero-source-preview"
+              meta={heroPreviewMeta ?? undefined}
             />
-            <ImagePreview src={content.heroMedia.mobileSrc} alt="hero-source-preview" />
             <input
               type="file"
               accept={content.heroMedia.type === "video" ? "video/*" : "image/*"}
@@ -1186,6 +1289,19 @@ function AdminPageContent() {
               onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
+                setHeroPreviewMeta({ name: file.name, sizeBytes: file.size });
+                // Show immediate local preview while uploading.
+                const localUrl = URL.createObjectURL(file);
+                update((prev) => ({
+                  ...prev,
+                  heroMedia: {
+                    ...prev.heroMedia,
+                    mobileSrc: localUrl,
+                    desktopSrc: localUrl,
+                    poster:
+                      prev.heroMedia.type === "image" ? localUrl : prev.heroMedia.poster,
+                  },
+                }));
                 try {
                   const src = await uploadFile(file, "hero");
                   let poster = content.heroMedia.poster;
@@ -1207,15 +1323,18 @@ function AdminPageContent() {
                     },
                   }));
                   setMessage("대표 이미지가 반영되었습니다.");
-                } catch {
-                  setMessage("대표 이미지 업로드에 실패했습니다.");
+                } catch (error) {
+                  const message =
+                    error instanceof Error && error.message ? error.message : "대표 이미지 업로드에 실패했습니다.";
+                  setMessage(message);
                 }
               }}
             />
             <button
               type="button"
-              className="mt-2 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700"
-              onClick={() =>
+              className={`mt-2 ${mc.secondaryButton}`}
+              onClick={() => {
+                setHeroPreviewMeta(null);
                 update((prev) => ({
                   ...prev,
                   heroMedia: {
@@ -1224,8 +1343,8 @@ function AdminPageContent() {
                     desktopSrc: PLACEHOLDER_SRC,
                     poster: PLACEHOLDER_SRC,
                   },
-                }))
-              }
+                }));
+              }}
             >
               파일 삭제
             </button>
@@ -1403,7 +1522,7 @@ function AdminPageContent() {
               </div>
             ))}
             <button
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className={mc.secondaryButton}
               onClick={() =>
                 update((prev) => ({
                   ...prev,
@@ -1445,7 +1564,7 @@ function AdminPageContent() {
                 />
                 <div className="flex gap-2 text-xs">
                   <button
-                    className="rounded border border-red-200 px-2 py-1 text-red-600"
+                    className={mc.dangerButtonSm}
                     onClick={() =>
                       update((prev) => {
                         const next = [...prev.heroSection.images];
@@ -1460,7 +1579,7 @@ function AdminPageContent() {
                     파일 삭제
                   </button>
                   <button
-                    className="rounded border border-gray-300 px-2 py-1"
+                    className={mc.secondaryButtonSm}
                     onClick={() =>
                       update((prev) => ({
                         ...prev,
@@ -1474,7 +1593,7 @@ function AdminPageContent() {
                     위로
                   </button>
                   <button
-                    className="rounded border border-gray-300 px-2 py-1"
+                    className={mc.secondaryButtonSm}
                     onClick={() =>
                       update((prev) => ({
                         ...prev,
@@ -1488,7 +1607,7 @@ function AdminPageContent() {
                     아래로
                   </button>
                   <button
-                    className="rounded border border-red-200 px-2 py-1 text-red-600"
+                    className={mc.dangerButtonSm}
                     onClick={() =>
                       update((prev) => ({
                         ...prev,
@@ -1505,7 +1624,7 @@ function AdminPageContent() {
               </div>
             ))}
             <button
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className={mc.secondaryButton}
               onClick={() =>
                 update((prev) => ({
                   ...prev,
@@ -1545,7 +1664,7 @@ function AdminPageContent() {
               }}
             />
             <button
-              className="mt-2 rounded border border-red-200 px-2 py-1 text-xs text-red-600"
+              className={`mt-2 ${mc.dangerButtonSm}`}
               onClick={() =>
                 update((prev) => ({
                   ...prev,
@@ -1610,7 +1729,7 @@ function AdminPageContent() {
               />
               <div className="flex gap-2 text-xs">
                 <button
-                  className="rounded border border-red-200 px-2 py-1 text-red-600"
+                  className={mc.dangerButtonSm}
                   onClick={() =>
                     update((prev) => {
                       const next = [...prev.gallerySection.images];
@@ -1625,7 +1744,7 @@ function AdminPageContent() {
                   파일 삭제
                 </button>
                 <button
-                  className="rounded border border-gray-300 px-2 py-1"
+                  className={mc.secondaryButtonSm}
                   onClick={() =>
                     update((prev) => ({
                       ...prev,
@@ -1639,7 +1758,7 @@ function AdminPageContent() {
                   위로
                 </button>
                 <button
-                  className="rounded border border-gray-300 px-2 py-1"
+                  className={mc.secondaryButtonSm}
                   onClick={() =>
                     update((prev) => ({
                       ...prev,
@@ -1653,7 +1772,7 @@ function AdminPageContent() {
                   아래로
                 </button>
                 <button
-                  className="rounded border border-red-200 px-2 py-1 text-red-600"
+                  className={mc.dangerButtonSm}
                   onClick={() =>
                     update((prev) => ({
                       ...prev,
@@ -1671,7 +1790,7 @@ function AdminPageContent() {
           ))}
 
           <button
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            className={mc.secondaryButton}
             onClick={() =>
               update((prev) => ({
                 ...prev,
@@ -1858,6 +1977,30 @@ function AdminPageContent() {
         </Section>
 
         <Section id="section-footer" title="푸터 영역" className="order-[100]">
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field label="이름 문구">
+              <TextInput
+                value={content.footer.nameLine}
+                onChange={(e) =>
+                  update((prev) => ({
+                    ...prev,
+                    footer: { ...prev.footer, nameLine: e.target.value },
+                  }))
+                }
+              />
+            </Field>
+            <Field label="날짜 문구">
+              <TextInput
+                value={content.footer.dateLine}
+                onChange={(e) =>
+                  update((prev) => ({
+                    ...prev,
+                    footer: { ...prev.footer, dateLine: e.target.value },
+                  }))
+                }
+              />
+            </Field>
+          </div>
           <Field label="푸터 태그라인">
             <TextInput
               value={content.footer.tagline}
@@ -1890,7 +2033,7 @@ function AdminPageContent() {
               void handleSave();
             }}
             disabled={saving || isReadOnly}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-50"
+            className={mc.secondaryButton}
           >
             {saving ? "저장 중..." : "임시저장하기"}
           </button>
@@ -1902,7 +2045,7 @@ function AdminPageContent() {
           showSavedToast ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
         }`}
       >
-        <div className="rounded-[300px] bg-black px-6 py-3 text-sm font-medium text-white shadow-lg">
+        <div className="rounded-[300px] bg-[#230603] px-6 py-3 text-sm font-medium text-white shadow-lg">
           저장이 완료되었어요!
         </div>
       </div>

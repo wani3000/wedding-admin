@@ -219,6 +219,8 @@ export function normalizeWeddingContent(
     },
     footer: {
       tagline: asString(footer.tagline, baseContent.footer.tagline),
+      nameLine: asString(footer.nameLine, baseContent.footer.nameLine),
+      dateLine: asString(footer.dateLine, baseContent.footer.dateLine),
     },
   };
 
