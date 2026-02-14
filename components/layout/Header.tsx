@@ -20,8 +20,6 @@ declare global {
   }
 }
 
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://www.invite-chulwan-nara.com";
 const KAKAO_APP_KEY =
   process.env.NEXT_PUBLIC_KAKAO_APP_KEY || "f179ab3e04a4fb5bb2c3e34b89b8662c";
 
@@ -131,9 +129,12 @@ export function Header({ content }: { content: WeddingContent }) {
       return;
     }
 
-    const imageUrl = content.share.imageUrl.startsWith("http")
-      ? content.share.imageUrl
-      : `${SITE_URL}${content.share.imageUrl}`;
+    const shareUrl = window.location.href;
+    const rawImage =
+      content.heroMedia.type === "video"
+        ? content.heroMedia.poster || content.heroMedia.mobileSrc || content.share.imageUrl
+        : content.heroMedia.mobileSrc || content.share.imageUrl;
+    const imageUrl = rawImage.startsWith("http") ? rawImage : `${window.location.origin}${rawImage}`;
 
     window.Kakao.Share.sendDefault({
       objectType: "feed",
@@ -142,16 +143,16 @@ export function Header({ content }: { content: WeddingContent }) {
         description: content.share.kakaoDescription,
         imageUrl,
         link: {
-          mobileWebUrl: SITE_URL,
-          webUrl: SITE_URL,
+          mobileWebUrl: shareUrl,
+          webUrl: shareUrl,
         },
       },
       buttons: [
         {
           title: content.share.buttonTitle,
           link: {
-            mobileWebUrl: SITE_URL,
-            webUrl: SITE_URL,
+            mobileWebUrl: shareUrl,
+            webUrl: shareUrl,
           },
         },
       ],
