@@ -210,8 +210,11 @@ function EditorHeader({
   return (
     <header className="border-b border-gray-200 bg-white">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 md:px-6">
-        <div className="text-lg font-bold text-gray-900">mariecard</div>
+        <a href="/" className="text-lg font-bold text-gray-900">
+          mariecard
+        </a>
 
+        {email ? (
         <div ref={menuRef} className="relative">
           <button
             type="button"
@@ -247,6 +250,7 @@ function EditorHeader({
             </div>
           )}
         </div>
+        ) : null}
       </div>
     </header>
   );

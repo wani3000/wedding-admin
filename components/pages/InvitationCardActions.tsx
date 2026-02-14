@@ -25,7 +25,8 @@ export function InvitationCardActions({ invitationId, type }: InvitationCardActi
         body: JSON.stringify({ action: "expire" }),
       });
       if (!res.ok) {
-        window.alert("만료 처리에 실패했습니다.");
+        const body = await res.json().catch(() => ({}));
+        window.alert(body?.message || "만료 처리에 실패했습니다.");
         return;
       }
       router.refresh();
@@ -45,7 +46,8 @@ export function InvitationCardActions({ invitationId, type }: InvitationCardActi
         method: "DELETE",
       });
       if (!res.ok) {
-        window.alert("삭제에 실패했습니다.");
+        const body = await res.json().catch(() => ({}));
+        window.alert(body?.message || "삭제에 실패했습니다.");
         return;
       }
       router.refresh();

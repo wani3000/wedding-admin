@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { unstable_noStore as noStore } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { ensureInvitationPublicId } from "@/lib/platform/invitations";
 import { DashboardHeader } from "@/components/pages/DashboardHeader";
@@ -201,6 +202,10 @@ function InvitationCardView({
 }
 
 export default async function DashboardPage() {
+  // Ensure mutations (expire/delete) are reflected immediately after router.refresh().
+  // Supabase client uses fetch under the hood; without noStore(), results can be cached.
+  noStore();
+
   let supabase;
   try {
     supabase = await createClient();
