@@ -27,6 +27,7 @@ const partners = [
   "MARRIED",
   "BRIDE & YOU",
 ];
+const partnerLoop = [...partners, ...partners];
 
 const showcaseCards = [
   {
@@ -92,6 +93,7 @@ export function LandingStart() {
   const { scrollYProgress } = useScroll();
   const heroY = useTransform(scrollYProgress, [0, 0.15], [0, -50]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.2], [1, 0.25]);
+  const sectionScale = useTransform(scrollYProgress, [0.08, 0.22], [0.96, 1]);
 
   const handleStart = async () => {
     setLoading(true);
@@ -127,6 +129,18 @@ export function LandingStart() {
       </section>
 
       <section className="relative overflow-hidden px-4 pb-24 pt-20 md:pb-36 md:pt-28">
+        <motion.div
+          aria-hidden
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="pointer-events-none absolute -left-24 top-24 size-72 rounded-full bg-[#f6e1e6] blur-3xl"
+        />
+        <motion.div
+          aria-hidden
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="pointer-events-none absolute -right-20 bottom-12 size-72 rounded-full bg-[#e0e4ca] blur-3xl"
+        />
         <motion.div
           style={{ y: heroY, opacity: heroOpacity }}
           className="mx-auto flex w-full max-w-6xl flex-col items-center"
@@ -165,8 +179,9 @@ export function LandingStart() {
             <motion.img
               initial={{ opacity: 0, y: 30, rotate: -8 }}
               whileInView={{ opacity: 1, y: 0, rotate: -6 }}
+              animate={{ y: [0, -8, 0] }}
               viewport={{ once: true }}
-              transition={{ duration: 0.8 }}
+              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
               src={figHeroMain}
               alt="figma hero"
               className="absolute left-1/2 top-1/2 h-[260px] w-[180px] -translate-x-1/2 -translate-y-1/2 rounded-[28px] object-cover shadow-2xl md:h-[340px] md:w-[230px]"
@@ -174,8 +189,9 @@ export function LandingStart() {
             <motion.img
               initial={{ opacity: 0, x: -20, y: 20, rotate: 8 }}
               whileInView={{ opacity: 1, x: 0, y: 0, rotate: 12 }}
+              animate={{ y: [0, 6, 0], rotate: [12, 14, 12] }}
               viewport={{ once: true }}
-              transition={{ delay: 0.15, duration: 0.7 }}
+              transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
               src={figHeroSticker}
               alt="figma sticker"
               className="absolute left-[18%] top-[25%] h-24 w-28 object-contain md:h-32 md:w-36"
@@ -183,8 +199,9 @@ export function LandingStart() {
             <motion.img
               initial={{ opacity: 0, x: 20, y: 10 }}
               whileInView={{ opacity: 1, x: 0, y: 0 }}
+              animate={{ y: [0, -5, 0] }}
               viewport={{ once: true }}
-              transition={{ delay: 0.25, duration: 0.7 }}
+              transition={{ duration: 4.8, repeat: Infinity, ease: "easeInOut" }}
               src={figHeroSymbol}
               alt="figma symbol"
               className="absolute bottom-[12%] right-[20%] h-16 w-16 object-contain md:h-24 md:w-24"
@@ -193,16 +210,24 @@ export function LandingStart() {
         </motion.div>
       </section>
 
-      <section className="border-y border-[#f6e1e6] bg-white py-7">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-center gap-x-10 gap-y-3 px-4 text-sm font-medium tracking-[0.06em] text-[#494949]/70">
-          {partners.map((item) => (
-            <span key={item}>{item}</span>
-          ))}
+      <section className="overflow-hidden border-y border-[#f6e1e6] bg-white py-7">
+        <div className="relative mx-auto w-full max-w-6xl">
+          <motion.div
+            animate={{ x: ["0%", "-50%"] }}
+            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+            className="flex w-[200%] gap-x-10 text-sm font-medium tracking-[0.06em] text-[#494949]/70"
+          >
+            {partnerLoop.map((item, index) => (
+              <span key={`${item}-${index}`} className="shrink-0">
+                {item}
+              </span>
+            ))}
+          </motion.div>
         </div>
       </section>
 
       <section className="px-4 py-20 md:py-28">
-        <div className="mx-auto w-full max-w-6xl">
+        <motion.div style={{ scale: sectionScale }} className="mx-auto w-full max-w-6xl">
           <motion.h2
             initial={{ opacity: 0, y: 18 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -221,6 +246,7 @@ export function LandingStart() {
                 key={card.title}
                 initial={{ opacity: 0, y: 24 }}
                 whileInView={{ opacity: 1, y: 0 }}
+                whileHover={{ y: -6, scale: 1.01 }}
                 viewport={{ once: true, amount: 0.25 }}
                 transition={{ duration: 0.6, delay: index * 0.08 }}
                 className={`overflow-hidden rounded-2xl border border-white/70 ${card.tone}`}
@@ -233,7 +259,7 @@ export function LandingStart() {
               </motion.article>
             ))}
           </div>
-        </div>
+        </motion.div>
       </section>
 
       <section className="bg-[#600426] px-4 py-20 text-white md:py-28">
