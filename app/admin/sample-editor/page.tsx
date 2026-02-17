@@ -74,14 +74,11 @@ function StyledFileInput({
   disabled?: boolean;
   className?: string;
 }) {
-  const [fileName, setFileName] = useState("선택된 파일 없음");
-
   return (
     <label
       className={`mt-2 flex w-full items-center gap-2 ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${className || ""}`}
     >
       <span className={mc.secondaryButton}>파일 선택</span>
-      <span className="min-w-0 flex-1 truncate text-sm text-gray-700">{fileName}</span>
       <input
         type="file"
         accept={accept}
@@ -89,7 +86,6 @@ function StyledFileInput({
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0] ?? null;
-          setFileName(file ? file.name : "선택된 파일 없음");
           onSelect(file);
         }}
       />
@@ -180,20 +176,6 @@ function formatBytes(bytes: number) {
   return `${value.toFixed(precision)} ${units[idx]}`;
 }
 
-function getFileNameFromSrc(src: string) {
-  if (!src) return "";
-  if (src.startsWith("blob:")) return "local-file";
-  if (src.startsWith("data:")) return "inline-data";
-  try {
-    const url = new URL(src, typeof window !== "undefined" ? window.location.origin : "http://localhost");
-    const name = url.pathname.split("/").filter(Boolean).pop() || "";
-    return decodeURIComponent(name);
-  } catch {
-    const clean = src.split("?")[0] || "";
-    return clean.split("/").filter(Boolean).pop() || src;
-  }
-}
-
 async function resolveRemoteSizeBytes(src: string): Promise<number | null> {
   if (!src) return null;
   if (src.startsWith("data:")) return null;
@@ -238,7 +220,6 @@ function ImagePreview({
 }) {
   const [hasError, setHasError] = useState(false);
   const [resolvedSize, setResolvedSize] = useState<number | null>(null);
-  const name = meta?.name || getFileNameFromSrc(src);
   const sizeBytes = meta?.sizeBytes ?? resolvedSize;
 
   useEffect(() => {
@@ -281,7 +262,6 @@ function ImagePreview({
         />
       )}
       <div className="mt-1 text-[11px] leading-4 text-gray-500">
-        <div className="truncate">{name}</div>
         <div>{sizeBytes != null ? formatBytes(sizeBytes) : "-"}</div>
       </div>
     </div>
