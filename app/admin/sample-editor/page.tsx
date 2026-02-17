@@ -116,7 +116,7 @@ const FIXED_MAP_LINKS = [
 ];
 const PLATFORM_DRAFT_STORAGE_KEY = "mariecard_platform_draft_v1";
 const KAKAO_JS_KEY =
-  process.env.NEXT_PUBLIC_KAKAO_APP_KEY || "f179ab3e04a4fb5bb2c3e34b89b8662c";
+  process.env.NEXT_PUBLIC_KAKAO_APP_KEY || "";
 
 function withFixedMapLinks(content: WeddingContent): WeddingContent {
   const current = content.detailsSection.mapLinks || [];
@@ -482,6 +482,7 @@ function AdminPageContent() {
   const [placeSearchResults, setPlaceSearchResults] = useState<KakaoKeywordPlace[]>([]);
   const placeSearchBoxRef = useRef<HTMLDivElement | null>(null);
   const suppressNextPlaceSearchRef = useRef(false);
+  const placeSearchRequestSeqRef = useRef(0);
   const toastTimeoutRef = useRef<number | null>(null);
 
   const pushToast = useCallback((text: string) => {
@@ -617,6 +618,7 @@ function AdminPageContent() {
       return;
     }
 
+    const requestSeq = ++placeSearchRequestSeqRef.current;
     setPlaceSearchBusy(true);
     try {
       const res = await fetch(`${placeSearchEndpoint}?q=${encodeURIComponent(query)}`, {
@@ -629,10 +631,12 @@ function AdminPageContent() {
       }
       const data = (await res.json()) as { places?: KakaoKeywordPlace[] };
       const places = Array.isArray(data.places) ? data.places : [];
+      if (requestSeq !== placeSearchRequestSeqRef.current) return;
       setPlaceSearchResults(places);
     } catch (error) {
       const serverMessage = error instanceof Error ? error.message : "장소 검색에 실패했습니다.";
       const fallbackPlaces = await searchByKakaoJsSdk(query);
+      if (requestSeq !== placeSearchRequestSeqRef.current) return;
       if (fallbackPlaces.length > 0) {
         setPlaceSearchResults(fallbackPlaces);
         return;
@@ -640,7 +644,9 @@ function AdminPageContent() {
       pushToast(serverMessage);
       setPlaceSearchResults([]);
     } finally {
-      setPlaceSearchBusy(false);
+      if (requestSeq === placeSearchRequestSeqRef.current) {
+        setPlaceSearchBusy(false);
+      }
     }
   }, [
     content.detailsSection.venueName,

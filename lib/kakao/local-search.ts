@@ -12,8 +12,10 @@ export async function searchKakaoKeywordPlaces(query: string): Promise<KakaoKeyw
   const keyword = query.trim();
   if (!keyword) return [];
 
-  const restKey =
-    process.env.KAKAO_REST_API_KEY || "45779f665f3847f84125a422908d9dc1";
+  const restKey = process.env.KAKAO_REST_API_KEY;
+  if (!restKey || restKey.trim() === "") {
+    throw new Error("KAKAO_REST_API_KEY 환경변수가 필요합니다.");
+  }
 
   const url = new URL("https://dapi.kakao.com/v2/local/search/keyword.json");
   url.searchParams.set("query", keyword);
