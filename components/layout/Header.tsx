@@ -20,8 +20,7 @@ declare global {
   }
 }
 
-const KAKAO_APP_KEY =
-  process.env.NEXT_PUBLIC_KAKAO_APP_KEY || "f179ab3e04a4fb5bb2c3e34b89b8662c";
+const KAKAO_APP_KEY = process.env.NEXT_PUBLIC_KAKAO_APP_KEY || "";
 
 function MapModal({
   onClose,
@@ -92,7 +91,7 @@ export function Header({ content }: { content: WeddingContent }) {
   const [mapOpen, setMapOpen] = useState(false);
 
   useEffect(() => {
-    if (window.Kakao && !window.Kakao.isInitialized()) {
+    if (window.Kakao && KAKAO_APP_KEY && !window.Kakao.isInitialized()) {
       window.Kakao.init(KAKAO_APP_KEY);
     }
 
@@ -118,13 +117,13 @@ export function Header({ content }: { content: WeddingContent }) {
   }, []);
 
   const handleKakaoLoad = () => {
-    if (window.Kakao && !window.Kakao.isInitialized()) {
+    if (window.Kakao && KAKAO_APP_KEY && !window.Kakao.isInitialized()) {
       window.Kakao.init(KAKAO_APP_KEY);
     }
   };
 
   const shareKakao = () => {
-    if (!window.Kakao || !window.Kakao.isInitialized()) {
+    if (!KAKAO_APP_KEY || !window.Kakao || !window.Kakao.isInitialized()) {
       alert("카카오 SDK가 초기화되지 않았습니다.");
       return;
     }
@@ -164,7 +163,7 @@ export function Header({ content }: { content: WeddingContent }) {
   return (
     <>
       <Script
-        src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js"
+        src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.7/kakao.min.js"
         strategy="afterInteractive"
         onLoad={handleKakaoLoad}
       />

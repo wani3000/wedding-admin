@@ -5,18 +5,18 @@ import { useState } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 
-const figHeroMain = "https://www.figma.com/api/mcp/asset/7eb8556a-d792-494a-890a-f844c45063ef";
-const figHeroSticker = "https://www.figma.com/api/mcp/asset/c1cdd417-85cb-459c-8086-ca730eb518f4";
-const figHeroSymbol = "https://www.figma.com/api/mcp/asset/6db9b449-8cb7-4c43-a5ef-a6961bf0aa58";
-const figFeatureA = "https://www.figma.com/api/mcp/asset/3d694007-800b-4f36-be54-d6fe55a56dd6";
-const figFeatureB = "https://www.figma.com/api/mcp/asset/b8e0b3bf-bba5-49fc-b27c-bbe10389bf36";
-const figFeatureC = "https://www.figma.com/api/mcp/asset/4a9d7869-cb0e-4409-9072-3377d81435d7";
-const figFeatureD = "https://www.figma.com/api/mcp/asset/af2bbe96-4f8c-461b-8163-3c659584c41f";
-const figFeatureE = "https://www.figma.com/api/mcp/asset/690f8d3c-3455-44b0-9109-c63b1b3e410e";
-const figFeatureF = "https://www.figma.com/api/mcp/asset/4412caec-5c27-4666-8b1a-f4db57ee6f2d";
-const figPersonA = "https://www.figma.com/api/mcp/asset/d66fd30d-5df6-43ae-9e45-1d2f13ab3ce6";
-const figPersonB = "https://www.figma.com/api/mcp/asset/bad51b24-e182-46de-b83d-72d2cc156734";
-const figPersonC = "https://www.figma.com/api/mcp/asset/b18d6ea6-565c-4475-a0d1-6b6f0cb47be4";
+const figHeroMain = "/img/section1/1-1.jpg";
+const figHeroSticker = "/img/section1/1-2.jpg";
+const figHeroSymbol = "/icon/hero.png";
+const figFeatureA = "/img/gallery/gallery_01.jpg";
+const figFeatureB = "/img/gallery/gallery_02.jpg";
+const figFeatureC = "/img/gallery/gallery_03.jpg";
+const figFeatureD = "/img/gallery/gallery_04.jpg";
+const figFeatureE = "/img/gallery/gallery_05.jpg";
+const figFeatureF = "/img/gallery/gallery_06.jpg";
+const figPersonA = "/img/gallery/gallery_17.jpg";
+const figPersonB = "/img/gallery/gallery_18.jpg";
+const figPersonC = "/img/gallery/gallery_19.jpg";
 
 const partners = [
   "KAKAO",

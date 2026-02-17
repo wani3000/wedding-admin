@@ -9,6 +9,7 @@ import type { WeddingContent } from "@/lib/content/types";
 
 export function Details({ content }: { content: WeddingContent["detailsSection"] }) {
   const toastRef = useRef<HTMLDivElement>(null);
+  const fullAddress = [content.address, content.detailAddress].filter((v) => v && v.trim() !== "").join(" ");
 
   const showToast = () => {
     if (toastRef.current) {
@@ -24,7 +25,7 @@ export function Details({ content }: { content: WeddingContent["detailsSection"]
   };
 
   const handleCopy = () => {
-    copyToClipboard(content.address, showToast);
+    copyToClipboard(fullAddress || content.address, showToast);
   };
 
   return (
@@ -42,13 +43,13 @@ export function Details({ content }: { content: WeddingContent["detailsSection"]
             </div>
 
             <div className="flex flex-col gap-3">
-              <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
-                <span className="min-w-0 flex-1 break-words text-[17px] font-semibold text-gray-600">
-                  {content.address}
+              <div className="flex w-full items-center justify-between gap-3">
+                <span className="min-w-0 flex-1 break-words pr-2 text-[17px] font-semibold text-gray-600">
+                  {fullAddress || content.address}
                 </span>
                 <div
                   onClick={handleCopy}
-                  className="inline-flex w-fit shrink-0 items-center gap-1.5 self-start rounded-full bg-black px-4 py-2 text-sm font-medium text-white transition-all hover:bg-gray-800 sm:self-auto cursor-pointer select-none"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-black px-4 py-2 text-sm font-medium text-white transition-all hover:bg-gray-800 cursor-pointer select-none"
                 >
                   <Copy className="w-3.5 h-3.5" />
                   <span className="font-sans">복사</span>
@@ -70,14 +71,14 @@ export function Details({ content }: { content: WeddingContent["detailsSection"]
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-3 gap-3 sm:flex sm:flex-wrap sm:items-center sm:justify-start sm:gap-x-6 sm:gap-y-4">
+            <div className="mt-4 grid w-full grid-cols-3 gap-0">
               {content.mapLinks.map((link, index) => (
                 <div key={`${link.name}-${index}`} className="flex items-center justify-center">
                   <a
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex min-w-0 flex-col items-center gap-1.5 transition-all hover:scale-105 active:scale-95 sm:flex-row sm:gap-2"
+                    className="flex w-full min-w-0 flex-col items-center justify-center gap-1.5 py-2 transition-all hover:scale-105 active:scale-95"
                   >
                     <div className="relative h-6 w-6 overflow-hidden rounded-md">
                       <Image
@@ -87,7 +88,7 @@ export function Details({ content }: { content: WeddingContent["detailsSection"]
                         className="object-cover"
                       />
                     </div>
-                    <span className="block w-full text-center text-[16px] font-semibold text-gray-600 sm:w-auto sm:text-[17px]">
+                    <span className="block w-full text-center text-[16px] font-semibold text-gray-600 sm:text-[17px]">
                       {link.name}
                     </span>
                   </a>

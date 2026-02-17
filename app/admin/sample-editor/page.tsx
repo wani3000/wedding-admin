@@ -49,7 +49,7 @@ function TextInput(props: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black ${props.className || ""}`}
+      className={`h-14 w-full rounded-lg border border-gray-300 px-4 text-base outline-none focus:border-black ${props.className || ""}`}
     />
   );
 }
@@ -60,6 +60,40 @@ function TextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
       {...props}
       className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black ${props.className || ""}`}
     />
+  );
+}
+
+function StyledFileInput({
+  accept,
+  onSelect,
+  disabled,
+  className,
+}: {
+  accept: string;
+  onSelect: (file: File | null) => void;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const [fileName, setFileName] = useState("선택된 파일 없음");
+
+  return (
+    <label
+      className={`mt-2 flex w-full items-center gap-2 ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${className || ""}`}
+    >
+      <span className={mc.secondaryButton}>파일 선택</span>
+      <span className="min-w-0 flex-1 truncate text-sm text-gray-700">{fileName}</span>
+      <input
+        type="file"
+        accept={accept}
+        disabled={disabled}
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0] ?? null;
+          setFileName(file ? file.name : "선택된 파일 없음");
+          onSelect(file);
+        }}
+      />
+    </label>
   );
 }
 
@@ -81,6 +115,8 @@ const FIXED_MAP_LINKS = [
   { name: "티맵", icon: "/icon/tmap.png" },
 ];
 const PLATFORM_DRAFT_STORAGE_KEY = "mariecard_platform_draft_v1";
+const KAKAO_JS_KEY =
+  process.env.NEXT_PUBLIC_KAKAO_APP_KEY || "f179ab3e04a4fb5bb2c3e34b89b8662c";
 
 function withFixedMapLinks(content: WeddingContent): WeddingContent {
   const current = content.detailsSection.mapLinks || [];
@@ -102,6 +138,37 @@ type InvitationMeta = {
   public_id: string | null;
   status: "draft" | "published" | "archived";
   published_at: string | null;
+};
+
+type KakaoKeywordPlace = {
+  id: string;
+  place_name: string;
+  address_name: string;
+  road_address_name: string;
+  x: string;
+  y: string;
+  place_url?: string;
+};
+
+type KakaoMapsSearchApi = {
+  load: (cb: () => void) => void;
+  services: {
+    Places: new () => {
+      keywordSearch: (
+        keyword: string,
+        callback: (data: KakaoKeywordPlace[], status: string) => void,
+      ) => void;
+    };
+    Status: {
+      OK: string;
+    };
+  };
+};
+
+type KakaoMapsWindow = Window & {
+  kakao?: {
+    maps?: KakaoMapsSearchApi;
+  };
 };
 
 function formatBytes(bytes: number) {
@@ -162,10 +229,12 @@ function ImagePreview({
   src,
   alt,
   meta,
+  previewClassName,
 }: {
   src: string;
   alt: string;
   meta?: { name?: string; sizeBytes?: number | null };
+  previewClassName?: string;
 }) {
   const [hasError, setHasError] = useState(false);
   const [resolvedSize, setResolvedSize] = useState<number | null>(null);
@@ -207,7 +276,7 @@ function ImagePreview({
         <img
           src={src}
           alt={alt || "preview"}
-          className="h-28 w-20 rounded-md border border-gray-200 object-cover"
+          className={previewClassName || "h-28 w-20 rounded-md border border-gray-200 object-cover"}
           onError={() => setHasError(true)}
         />
       )}
@@ -224,9 +293,15 @@ type SectionTab = {
   label: string;
 };
 
+type SectionCategory = {
+  id: string;
+  label: string;
+  sections: SectionTab[];
+};
+
 const FIRST_SECTION_DEFAULT = {
   weddingDate: "2026년 2월 14일 토요일 오후 5시",
-  weddingVenue: "라움아트센터",
+  weddingVenue: "서울신라호텔",
   groomSide: "홍길동 • 홍길동의 아들 민준",
   brideSide: "홍길동 • 홍길동의 딸 서연",
 };
@@ -390,24 +465,206 @@ function AdminPageContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeAdminKey, setActiveAdminKey] = useState("");
   const [backups, setBackups] = useState<string[]>([]);
+  const [toastMessage, setToastMessage] = useState("");
   const [showSavedToast, setShowSavedToast] = useState(false);
   const [invitationMeta, setInvitationMeta] = useState<InvitationMeta | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
-  const [publicUrl, setPublicUrl] = useState("");
   const [reactivating, setReactivating] = useState(false);
   const [profileName, setProfileName] = useState("내 계정");
   const [profileEmail, setProfileEmail] = useState("");
   const [activeSection, setActiveSection] = useState("section-share");
+  const [activeCategory, setActiveCategory] = useState("category-share");
   const [isLivePreviewVisible, setIsLivePreviewVisible] = useState(false);
   const [heroPreviewMeta, setHeroPreviewMeta] = useState<{ name: string; sizeBytes: number } | null>(null);
   const [shareOgPreviewMeta, setShareOgPreviewMeta] = useState<{ name: string; sizeBytes: number } | null>(null);
   const [shareKakaoPreviewMeta, setShareKakaoPreviewMeta] = useState<{ name: string; sizeBytes: number } | null>(null);
+  const [placeSearchBusy, setPlaceSearchBusy] = useState(false);
+  const [placeSearchResults, setPlaceSearchResults] = useState<KakaoKeywordPlace[]>([]);
+  const placeSearchBoxRef = useRef<HTMLDivElement | null>(null);
+  const suppressNextPlaceSearchRef = useRef(false);
+  const toastTimeoutRef = useRef<number | null>(null);
+
+  const pushToast = useCallback((text: string) => {
+    if (!text) return;
+    setToastMessage(text);
+    setShowSavedToast(true);
+    if (toastTimeoutRef.current) {
+      window.clearTimeout(toastTimeoutRef.current);
+    }
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setShowSavedToast(false);
+      toastTimeoutRef.current = null;
+    }, 1800);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) {
+        window.clearTimeout(toastTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const onOutsideClick = (event: MouseEvent) => {
+      if (!placeSearchBoxRef.current) return;
+      if (placeSearchBoxRef.current.contains(event.target as Node)) return;
+      setPlaceSearchResults([]);
+    };
+    document.addEventListener("mousedown", onOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", onOutsideClick);
+    };
+  }, []);
+
+  const placeSearchEndpoint = isPlatformMode
+    ? isSuperMode
+      ? "/api/admin/places/keyword"
+      : "/api/platform/places/keyword"
+    : "/api/admin/places/keyword";
+
+  const searchByKakaoJsSdk = useCallback(async (query: string): Promise<KakaoKeywordPlace[]> => {
+    if (typeof window === "undefined") return [];
+    const w = window as KakaoMapsWindow;
+
+    const ensureLoaded = async () => {
+      if (w.kakao?.maps?.services) return;
+      await new Promise<void>((resolve, reject) => {
+        const existing = document.getElementById("kakao-maps-sdk-keyword") as HTMLScriptElement | null;
+        if (existing) {
+          existing.addEventListener("load", () => {
+            w.kakao?.maps?.load(() => resolve());
+          });
+          existing.addEventListener("error", () => reject(new Error("Kakao JS SDK load failed")));
+          return;
+        }
+
+        const script = document.createElement("script");
+        script.id = "kakao-maps-sdk-keyword";
+        script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_JS_KEY}&libraries=services&autoload=false`;
+        script.async = true;
+        script.onload = () => {
+          w.kakao?.maps?.load(() => resolve());
+        };
+        script.onerror = () => reject(new Error("Kakao JS SDK load failed"));
+        document.head.appendChild(script);
+      });
+    };
+
+    await ensureLoaded();
+    if (!w.kakao?.maps?.services) return [];
+    const maps = w.kakao.maps;
+
+    return await new Promise<KakaoKeywordPlace[]>((resolve) => {
+      const places = new maps.services.Places();
+      places.keywordSearch(query, (data, status) => {
+        if (status === maps.services.Status.OK && Array.isArray(data)) {
+          resolve(data);
+          return;
+        }
+        resolve([]);
+      });
+    });
+  }, []);
+
+  const applyPlaceResult = useCallback(
+    (place: KakaoKeywordPlace) => {
+      const pickedAddress = place.road_address_name || place.address_name || "";
+      const queryText = (place.place_name || pickedAddress || "").trim();
+      update((prev) => {
+        const nextMapLinks = FIXED_MAP_LINKS.map((fixed, i) => ({
+          name: fixed.name,
+          icon: fixed.icon,
+          url: prev.detailsSection.mapLinks[i]?.url || "",
+        }));
+        const kakaoUrl =
+          Number.isFinite(Number(place.y)) && Number.isFinite(Number(place.x))
+            ? `https://map.kakao.com/link/map/${encodeURIComponent(place.place_name || "선택한장소")},${place.y},${place.x}`
+            : `https://map.kakao.com/link/search/${encodeURIComponent(queryText)}`;
+        const naverUrl = `https://map.naver.com/v5/search/${encodeURIComponent(queryText)}`;
+        const tmapUrl = `https://www.tmap.co.kr/tmap2/search?name=${encodeURIComponent(queryText)}`;
+
+        nextMapLinks[0] = { ...nextMapLinks[0], url: kakaoUrl };
+        nextMapLinks[1] = { ...nextMapLinks[1], url: naverUrl };
+        nextMapLinks[2] = { ...nextMapLinks[2], url: tmapUrl };
+        return {
+          ...prev,
+          detailsSection: {
+            ...prev.detailsSection,
+            venueName: place.place_name || prev.detailsSection.venueName,
+            address: pickedAddress || prev.detailsSection.address,
+            mapLinks: nextMapLinks,
+          },
+        };
+      });
+      suppressNextPlaceSearchRef.current = true;
+      setPlaceSearchResults([]);
+      pushToast("장소 검색 결과가 반영되었습니다.");
+    },
+    [pushToast],
+  );
 
   const getAdminHeaders = useCallback((): Record<string, string> => {
     if (activeAdminKey === "") return {};
     if ((isPlatformMode || isCreateMode) && !isSuperMode) return {};
     return { "x-admin-key": activeAdminKey };
   }, [activeAdminKey, isCreateMode, isPlatformMode, isSuperMode]);
+
+  const handleSearchPlaceByKeyword = useCallback(async () => {
+    const query = content.detailsSection.venueName.trim();
+    if (!query) {
+      setPlaceSearchResults([]);
+      return;
+    }
+
+    setPlaceSearchBusy(true);
+    try {
+      const res = await fetch(`${placeSearchEndpoint}?q=${encodeURIComponent(query)}`, {
+        cache: "no-store",
+        headers: getAdminHeaders(),
+      });
+      if (!res.ok) {
+        const errorBody = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(errorBody.message || "장소 검색에 실패했습니다.");
+      }
+      const data = (await res.json()) as { places?: KakaoKeywordPlace[] };
+      const places = Array.isArray(data.places) ? data.places : [];
+      setPlaceSearchResults(places);
+    } catch (error) {
+      const serverMessage = error instanceof Error ? error.message : "장소 검색에 실패했습니다.";
+      const fallbackPlaces = await searchByKakaoJsSdk(query);
+      if (fallbackPlaces.length > 0) {
+        setPlaceSearchResults(fallbackPlaces);
+        return;
+      }
+      pushToast(serverMessage);
+      setPlaceSearchResults([]);
+    } finally {
+      setPlaceSearchBusy(false);
+    }
+  }, [
+    content.detailsSection.venueName,
+    getAdminHeaders,
+    placeSearchEndpoint,
+    pushToast,
+    searchByKakaoJsSdk,
+  ]);
+
+  useEffect(() => {
+    const keyword = content.detailsSection.venueName.trim();
+    if (suppressNextPlaceSearchRef.current) {
+      suppressNextPlaceSearchRef.current = false;
+      return;
+    }
+    if (keyword.length < 1) {
+      setPlaceSearchResults([]);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void handleSearchPlaceByKeyword();
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [content.detailsSection.venueName, handleSearchPlaceByKeyword]);
 
   const contentEndpoint = isPlatformMode
     ? isSuperMode
@@ -446,22 +703,47 @@ function AdminPageContent() {
       : `/api/platform/invitations/${invitationId}/status`
     : "";
   const isReadOnly = isPlatformMode && invitationMeta?.status === "archived" && !isSuperMode;
-  const sectionTabs = useMemo<SectionTab[]>(
+  const sectionCategories = useMemo<SectionCategory[]>(
     () => [
-      { id: "section-share", label: "공유하기 문구" },
-      { id: "section-header", label: "헤더 영역" },
-      { id: "section-hero", label: "대표이미지 영역" },
-      { id: "section-first", label: "첫번째 영역" },
-      { id: "section-carousel", label: "첫번째 캐러셀 이미지" },
-      { id: "section-guide", label: "안내문구 영역" },
-      { id: "section-intro-image", label: "소개 섹션 이미지" },
-      { id: "section-gallery", label: "갤러리 이미지" },
-      { id: "section-location", label: "장소/오시는길" },
-      { id: "section-account", label: "계좌번호 영역" },
-      { id: "section-footer", label: "푸터 영역" },
-      ...(!isPlatformMode && !isCreateMode ? [{ id: "section-backup", label: "백업/복구" }] : []),
+      {
+        id: "category-main",
+        label: "메인",
+        sections: [
+          { id: "section-header", label: "헤더 영역" },
+          { id: "section-hero", label: "대표이미지영역" },
+          { id: "section-first", label: "첫번째영역" },
+          { id: "section-carousel", label: "첫번째 캐러셀 이미지" },
+          { id: "section-guide", label: "안내문구" },
+          { id: "section-intro-image", label: "소개 섹션" },
+        ],
+      },
+      {
+        id: "category-gallery",
+        label: "갤러리",
+        sections: [{ id: "section-gallery", label: "갤러리" }],
+      },
+      {
+        id: "category-extra",
+        label: "추가글",
+        sections: [
+          { id: "section-location", label: "장소/오시는길" },
+          { id: "section-account", label: "계좌번호" },
+          { id: "section-footer", label: "푸터 영역" },
+          ...(!isPlatformMode && !isCreateMode ? [{ id: "section-backup", label: "백업/복구" }] : []),
+        ],
+      },
+      {
+        id: "category-share",
+        label: "공유하기",
+        sections: [{ id: "section-share", label: "공유하기 문구" }],
+      },
     ],
     [isCreateMode, isPlatformMode],
+  );
+
+  const sectionTabs = useMemo<SectionTab[]>(
+    () => sectionCategories.flatMap((category) => category.sections),
+    [sectionCategories],
   );
 
   const loadBackups = async (currentKey: string) => {
@@ -483,10 +765,6 @@ function AdminPageContent() {
     if (!res.ok) return;
     const data = (await res.json()) as InvitationMeta;
     setInvitationMeta(data);
-    if (data.public_id) {
-      const baseUrl = window.location.origin;
-      setPublicUrl(`${baseUrl}/invitation/${data.public_id}`);
-    }
   }, [invitationId, isPlatformMode, metaEndpoint, getAdminHeaders]);
 
   useEffect(() => {
@@ -529,7 +807,7 @@ function AdminPageContent() {
         const metaPromise = isPlatformMode ? loadInvitationMeta() : loadBackups(activeAdminKey);
         const [res] = await Promise.all([contentPromise, metaPromise]);
         if (!res.ok) {
-          setMessage(isPlatformMode ? "초대장 접근 권한이 없습니다." : "로그인 정보가 올바르지 않습니다.");
+          pushToast(isPlatformMode ? "초대장 접근 권한이 없습니다." : "로그인 정보가 올바르지 않습니다.");
           if (!isPlatformMode) {
             setIsAuthenticated(false);
             window.sessionStorage.removeItem("adminPin");
@@ -541,7 +819,7 @@ function AdminPageContent() {
         setContent(withFixedMapLinks(data));
         setLoading(false);
       } catch {
-        setMessage("관리자 데이터를 불러오지 못했습니다.");
+        pushToast("관리자 데이터를 불러오지 못했습니다.");
         setLoading(false);
       }
     };
@@ -556,6 +834,7 @@ function AdminPageContent() {
     invitationId,
     isSuperMode,
     loadInvitationMeta,
+    pushToast,
   ]);
 
   const update = (fn: (prev: WeddingContent) => WeddingContent) => {
@@ -634,7 +913,7 @@ function AdminPageContent() {
 
   const handleSave = async (nextContent?: WeddingContent): Promise<boolean> => {
     if (isReadOnly) {
-      setMessage("만료된 초대장은 수정할 수 없습니다. 상단에서 다시 활성화해 주세요.");
+      pushToast("만료된 초대장은 수정할 수 없습니다. 상단에서 다시 활성화해 주세요.");
       return false;
     }
 
@@ -649,9 +928,7 @@ function AdminPageContent() {
       if (isCreateMode && !isPlatformMode && !isSuperMode) {
         window.localStorage.setItem(PLATFORM_DRAFT_STORAGE_KEY, JSON.stringify(payload));
         setContent(payload);
-        setMessage("임시저장이 완료되었습니다.");
-        setShowSavedToast(true);
-        setTimeout(() => setShowSavedToast(false), 1800);
+        pushToast("임시저장이 완료되었습니다.");
         return true;
       }
 
@@ -670,9 +947,7 @@ function AdminPageContent() {
       }
       const saved = (await res.json()) as WeddingContent;
       setContent(withFixedMapLinks(saved));
-      setMessage("저장 완료: 청첩장에 바로 반영됩니다.");
-      setShowSavedToast(true);
-      setTimeout(() => setShowSavedToast(false), 1800);
+      pushToast("저장 완료: 청첩장에 바로 반영됩니다.");
       if (!isPlatformMode && !isCreateMode) {
         await loadBackups(activeAdminKey);
       }
@@ -682,7 +957,7 @@ function AdminPageContent() {
         error instanceof Error && error.message !== ""
           ? error.message
           : "저장 실패: 다시 시도해 주세요.";
-      setMessage(failMessage);
+      pushToast(failMessage);
       return false;
     } finally {
       setSaving(false);
@@ -694,7 +969,7 @@ function AdminPageContent() {
     setContent(resetContent);
     const saved = await handleSave(resetContent);
     if (saved) {
-      setMessage("초기화 완료: 기본 샘플 데이터로 되돌렸습니다.");
+      pushToast("초기화 완료: 기본 샘플 데이터로 되돌렸습니다.");
     }
   };
 
@@ -743,10 +1018,10 @@ function AdminPageContent() {
       }
       const restored = (await res.json()) as WeddingContent;
       setContent(restored);
-      setMessage(`복원 완료: ${name}`);
+      pushToast(`복원 완료: ${name}`);
       await loadBackups(activeAdminKey);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "복원 실패");
+      pushToast(error instanceof Error ? error.message : "복원 실패");
     }
   };
 
@@ -762,7 +1037,7 @@ function AdminPageContent() {
       headers: getAdminHeaders(),
     });
     if (!res.ok) {
-      setMessage("미리보기 링크 생성에 실패했습니다.");
+      pushToast("미리보기 링크 생성에 실패했습니다.");
       return;
     }
 
@@ -789,13 +1064,12 @@ function AdminPageContent() {
       body: publishBody,
     });
     if (!res.ok) {
-      setMessage("청첩장 내보내기에 실패했습니다.");
+      pushToast("청첩장 내보내기에 실패했습니다.");
       return;
     }
 
     const data = (await res.json()) as { url: string; invitationId?: string };
-    setPublicUrl(data.url);
-    setMessage("내보내기 완료: 공개 링크가 생성되었습니다.");
+    pushToast("내보내기 완료: 공개 링크가 생성되었습니다.");
     window.open(data.url, "_blank", "noopener,noreferrer");
     if (isCreateMode && data.invitationId) {
       window.localStorage.removeItem(PLATFORM_DRAFT_STORAGE_KEY);
@@ -816,11 +1090,11 @@ function AdminPageContent() {
         body: JSON.stringify({ action: "restore" }),
       });
       if (!res.ok) {
-        setMessage("청첩장 재활성화에 실패했습니다.");
+        pushToast("청첩장 재활성화에 실패했습니다.");
         return;
       }
       await loadInvitationMeta();
-      setMessage("청첩장이 다시 활성화되었습니다.");
+      pushToast("청첩장이 다시 활성화되었습니다.");
     } finally {
       setReactivating(false);
     }
@@ -850,6 +1124,13 @@ function AdminPageContent() {
     if (!target) return;
     target.scrollIntoView({ behavior: "smooth", block: "start" });
     setActiveSection(id);
+  };
+
+  const scrollToCategory = (categoryId: string) => {
+    const category = sectionCategories.find((item) => item.id === categoryId);
+    if (!category || category.sections.length === 0) return;
+    setActiveCategory(categoryId);
+    scrollToSection(category.sections[0].id);
   };
 
   useEffect(() => {
@@ -900,6 +1181,14 @@ function AdminPageContent() {
   }, [isAuthenticated, sectionTabs]);
 
   useEffect(() => {
+    const hit = sectionCategories.find((category) =>
+      category.sections.some((section) => section.id === activeSection),
+    );
+    if (!hit) return;
+    setActiveCategory(hit.id);
+  }, [activeSection, sectionCategories]);
+
+  useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 1024px)");
     const sync = () => setIsLivePreviewVisible(mediaQuery.matches);
     sync();
@@ -947,79 +1236,98 @@ function AdminPageContent() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f3f4f6]">
-      <EditorHeader
-        name={profileName}
-        email={profileEmail}
-        onLogout={handleHeaderLogout}
-        center={
-          <div className="flex min-w-0 items-center gap-3 text-sm text-gray-600">
-            <span className="hidden whitespace-nowrap md:inline">초대장 제작하기</span>
-            {isPlatformMode ? (
-              <span className="hidden whitespace-nowrap md:inline">
-                상태: <span className="font-medium text-gray-900">{invitationMeta?.status || "draft"}</span>
-              </span>
-            ) : null}
-          </div>
-        }
-        actions={
-          <div className="hidden items-center gap-2 md:flex">
+    <main className="flex h-[100dvh] flex-col overflow-hidden bg-[#f3f4f6]">
+      <div className="sticky top-0 z-40 shrink-0 bg-white">
+        <EditorHeader
+          name={profileName}
+          email={profileEmail}
+          onLogout={handleHeaderLogout}
+          center={
+            <div className="flex min-w-0 items-center gap-3 text-sm text-gray-600">
+              <span className="hidden whitespace-nowrap md:inline">초대장 제작하기</span>
+              {isPlatformMode ? (
+                <span className="hidden whitespace-nowrap md:inline">
+                  상태: <span className="font-medium text-gray-900">{invitationMeta?.status || "draft"}</span>
+                </span>
+              ) : null}
+            </div>
+          }
+          actions={
+            <div className="hidden items-center gap-2 md:flex">
+                <button
+                  onClick={() => {
+                    void handleSave();
+                  }}
+                  disabled={loading || saving || isReadOnly}
+                  className={mc.secondaryButton}
+                >
+                  {saving ? "저장 중..." : "임시저장"}
+                </button>
+              {(isPlatformMode || isCreateMode) && (
+                <>
+                  {!isLivePreviewVisible && isPlatformMode && (
+                    <button
+                      onClick={handleCreatePreview}
+                      disabled={loading || saving || isReadOnly}
+                      className={mc.secondaryButton}
+                    >
+                      청첩장 미리보기
+                    </button>
+                  )}
+                  <button
+                    onClick={handlePublish}
+                    disabled={loading || saving || isReadOnly}
+                    className={mc.primaryButton}
+                  >
+                    청첩장 내보내기
+                  </button>
+                  {isReadOnly && (
+                    <button
+                      onClick={handleReactivateInvitation}
+                      disabled={loading || reactivating}
+                      className={mc.primaryButton}
+                    >
+                      {reactivating ? "재활성화 중..." : "청첩장 다시 활성화"}
+                    </button>
+                  )}
+                </>
+              )}
               <button
-                onClick={() => {
-                  void handleSave();
-                }}
+                onClick={handleResetToDefault}
                 disabled={loading || saving || isReadOnly}
                 className={mc.secondaryButton}
               >
-                {saving ? "저장 중..." : "임시저장"}
+                초기화
               </button>
-            {(isPlatformMode || isCreateMode) && (
-              <>
-                {!isLivePreviewVisible && isPlatformMode && (
-                  <button
-                    onClick={handleCreatePreview}
-                    disabled={loading || saving || isReadOnly}
-                    className={mc.secondaryButton}
-                  >
-                    청첩장 미리보기
-                  </button>
-                )}
-                <button
-                  onClick={handlePublish}
-                  disabled={loading || saving || isReadOnly}
-                  className={mc.primaryButton}
-                >
-                  청첩장 내보내기
-                </button>
-                {isReadOnly && (
-                  <button
-                    onClick={handleReactivateInvitation}
-                    disabled={loading || reactivating}
-                    className={mc.primaryButton}
-                  >
-                    {reactivating ? "재활성화 중..." : "청첩장 다시 활성화"}
-                  </button>
-                )}
-              </>
-            )}
-            <button
-              onClick={handleResetToDefault}
-              disabled={loading || saving || isReadOnly}
-              className={mc.secondaryButton}
-            >
-              초기화
-            </button>
+            </div>
+          }
+        />
+        <div className="border-b border-gray-200 px-4 pb-0 pt-3 md:px-6">
+          <div className="flex items-center gap-8 overflow-x-auto">
+            {sectionCategories.map((category) => (
+              <button
+                key={category.id}
+                type="button"
+                onClick={() => scrollToCategory(category.id)}
+                className={`-mb-px shrink-0 border-b-[3px] pb-2 text-[17px] leading-none transition ${
+                  activeCategory === category.id
+                    ? "border-[#374151] font-semibold text-[#374151]"
+                    : "border-transparent font-medium text-[#4b5563] hover:text-[#374151]"
+                }`}
+              >
+                {category.label}
+              </button>
+            ))}
           </div>
-        }
-      />
+        </div>
+      </div>
 
-      <div className="grid min-h-[calc(100vh-116px)] grid-cols-1 lg:grid-cols-2">
-        <section className="border-b border-gray-200 bg-white lg:border-b-0 lg:border-r">
-          <div className="h-[calc(100vh-116px)] overflow-y-auto px-4 pb-32 pt-0 md:px-6 md:pb-32 md:pt-0">
-            {(loading || message || errors.length > 0 || previewUrl || publicUrl || (isPlatformMode && isReadOnly)) && (
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-2">
+        <section className="min-h-0 border-b border-gray-200 bg-white lg:border-b-0 lg:border-r">
+          <div className="h-full min-h-0 overflow-y-auto bg-white px-4 pb-[200px] pt-0 md:px-6 md:pb-[200px] md:pt-0">
+            {(loading || errors.length > 0 || previewUrl || (isPlatformMode && isReadOnly)) && (
               <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-700">
                 {loading ? <p className="font-medium text-gray-800">관리자 데이터를 불러오는 중...</p> : null}
-                {message ? <p className="font-medium text-gray-800">{message}</p> : null}
                 {isPlatformMode && isReadOnly ? (
                   <p className="mt-2 font-medium text-[#800532]">
                     만료된 초대장입니다. 입력 필드는 비활성화되어 있으며 재활성화 후 수정할 수 있습니다.
@@ -1033,14 +1341,6 @@ function AdminPageContent() {
                     </a>
                   </p>
                 ) : null}
-                {publicUrl ? (
-                  <p className="mt-2 break-all">
-                    공개 링크:{" "}
-                    <a className="text-blue-600 underline" href={publicUrl} target="_blank" rel="noreferrer">
-                      {publicUrl}
-                    </a>
-                  </p>
-                ) : null}
                 {errors.length > 0 && (
                   <ul className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     {errors.map((error, index) => (
@@ -1051,28 +1351,20 @@ function AdminPageContent() {
               </div>
             )}
 
-        <div className="sticky top-0 z-30 -mx-4 border-b border-gray-200 bg-white px-4 py-3 md:-mx-6 md:px-6">
-          <div className="flex items-center gap-2 overflow-x-auto">
-            {sectionTabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => scrollToSection(tab.id)}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-sm transition ${
-                  activeSection === tab.id
-                    ? mc.pillActive
-                    : mc.pill
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
+          <fieldset disabled={loading || isReadOnly} className="mt-5 flex flex-col disabled:opacity-70">
+        <h3 className="order-[16] text-left text-sm font-semibold text-gray-500">메인</h3>
 
-          <fieldset disabled={loading || isReadOnly} className="mt-5 flex flex-col gap-5 disabled:opacity-70">
+        <div className="order-[65] -mx-4 my-[80px] border-t-[12px] border-gray-200 md:-mx-6" />
+        <h3 className="order-[66] text-left text-sm font-semibold text-gray-500">갤러리</h3>
+
+        <div className="order-[75] -mx-4 my-[80px] border-t-[12px] border-gray-200 md:-mx-6" />
+        <h3 className="order-[76] text-left text-sm font-semibold text-gray-500">추가글</h3>
+
+        <div className="order-[105] -mx-4 my-[80px] border-t-[12px] border-gray-200 md:-mx-6" />
+        <h3 className="order-[106] text-left text-sm font-semibold text-gray-500">공유하기</h3>
+
         {!isPlatformMode && !isCreateMode && (
-          <Section id="section-backup" title="백업/복구" className="order-[110]">
+          <Section id="section-backup" title="백업/복구" className="order-[110] mt-20">
             <p className="text-sm text-gray-600">
               저장 시 자동 백업됩니다. 백업 선택 시 현재 데이터 위에 복원됩니다.
             </p>
@@ -1098,7 +1390,7 @@ function AdminPageContent() {
           </Section>
         )}
 
-        <Section id="section-share" title="공유하기 문구" className="order-[5]">
+        <Section id="section-share" title="공유하기 문구" className="order-[107] mt-2">
           <Field label="제목">
             <TextInput
               value={content.share.kakaoTitle}
@@ -1116,14 +1408,12 @@ function AdminPageContent() {
                 src={content.share.ogImageUrl || content.share.imageUrl}
                 alt="share-og-preview"
                 meta={shareOgPreviewMeta ?? undefined}
+                previewClassName="h-24 w-40 rounded-md border border-gray-200 object-cover"
               />
               <p className="mt-2 text-xs text-gray-500">권장 사진 크기: 1000 x 630 (가로형 OG 이미지)</p>
-              <input
-                type="file"
+              <StyledFileInput
                 accept="image/*"
-                className="mt-2 block w-full text-xs"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
+                onSelect={async (file) => {
                   if (!file) return;
                   setShareOgPreviewMeta({ name: file.name, sizeBytes: file.size });
                   const localUrl = URL.createObjectURL(file);
@@ -1146,7 +1436,7 @@ function AdminPageContent() {
                       },
                     }));
                   } catch (error) {
-                    setMessage(error instanceof Error ? error.message : "공유 이미지 업로드에 실패했습니다.");
+                    pushToast(error instanceof Error ? error.message : "공유 이미지 업로드에 실패했습니다.");
                   }
                 }}
               />
@@ -1159,12 +1449,9 @@ function AdminPageContent() {
                 meta={shareKakaoPreviewMeta ?? undefined}
               />
               <p className="mt-2 text-xs text-gray-500">권장 사진 크기: 800 x 1200 (세로형 카카오 공유 이미지)</p>
-              <input
-                type="file"
+              <StyledFileInput
                 accept="image/*"
-                className="mt-2 block w-full text-xs"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
+                onSelect={async (file) => {
                   if (!file) return;
                   setShareKakaoPreviewMeta({ name: file.name, sizeBytes: file.size });
                   const localUrl = URL.createObjectURL(file);
@@ -1179,7 +1466,7 @@ function AdminPageContent() {
                       share: { ...prev.share, kakaoImageUrl: src },
                     }));
                   } catch (error) {
-                    setMessage(error instanceof Error ? error.message : "카카오 공유 이미지 업로드에 실패했습니다.");
+                    pushToast(error instanceof Error ? error.message : "카카오 공유 이미지 업로드에 실패했습니다.");
                   }
                 }}
               />
@@ -1198,7 +1485,7 @@ function AdminPageContent() {
           </Field>
         </Section>
 
-        <Section id="section-header" title="헤더 영역" className="order-[10]">
+        <Section id="section-header" title="헤더 영역" className="order-[17] mt-2">
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="왼쪽 문장">
               <TextInput
@@ -1225,7 +1512,7 @@ function AdminPageContent() {
           </div>
         </Section>
 
-        <Section id="section-first" title="첫번째 영역" className="order-[30]">
+        <Section id="section-first" title="첫번째 영역" className="order-[30] mt-20">
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="첫번째 문장">
               <TextInput
@@ -1300,7 +1587,7 @@ function AdminPageContent() {
           </div>
         </Section>
 
-        <Section id="section-hero" title="대표이미지 영역(히어로이미지)" className="order-[20]">
+        <Section id="section-hero" title="대표이미지 영역(히어로이미지)" className="order-[20] mt-20">
           <Field label="타입">
             <select
               value={content.heroMedia.type}
@@ -1318,7 +1605,7 @@ function AdminPageContent() {
                   },
                 }))
               }
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="h-14 w-full rounded-lg border border-gray-300 pl-4 pr-12 text-base"
             >
               <option value="video">비디오</option>
               <option value="image">이미지</option>
@@ -1330,12 +1617,9 @@ function AdminPageContent() {
               alt="hero-source-preview"
               meta={heroPreviewMeta ?? undefined}
             />
-            <input
-              type="file"
+            <StyledFileInput
               accept={content.heroMedia.type === "video" ? "video/*" : "image/*"}
-              className="mt-2 block w-full text-xs"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
+              onSelect={async (file) => {
                 if (!file) return;
                 setHeroPreviewMeta({ name: file.name, sizeBytes: file.size });
                 // Show immediate local preview while uploading.
@@ -1370,11 +1654,11 @@ function AdminPageContent() {
                       poster: poster || PLACEHOLDER_SRC,
                     },
                   }));
-                  setMessage("대표 이미지가 반영되었습니다.");
+                  pushToast("대표 이미지가 반영되었습니다.");
                 } catch (error) {
                   const message =
                     error instanceof Error && error.message ? error.message : "대표 이미지 업로드에 실패했습니다.";
-                  setMessage(message);
+                  pushToast(message);
                 }
               }}
             />
@@ -1404,7 +1688,7 @@ function AdminPageContent() {
           </Field>
         </Section>
 
-        <Section id="section-guide" title="안내문구 영역" className="order-[50]">
+        <Section id="section-guide" title="안내문구 영역" className="order-[50] mt-20">
           <Field label="소개 타이틀">
             <TextArea
               rows={6}
@@ -1431,18 +1715,58 @@ function AdminPageContent() {
           </Field>
         </Section>
 
-        <Section id="section-location" title="장소/오시는길" className="order-[80]">
+        <Section id="section-location" title="장소/오시는길" className="order-[80] mt-2">
           <Field label="장소명">
-            <TextInput
-              value={content.detailsSection.venueName}
-              onChange={(e) =>
-                update((prev) => ({
-                  ...prev,
-                  detailsSection: { ...prev.detailsSection, venueName: e.target.value },
-                }))
-              }
-            />
+            <div ref={placeSearchBoxRef} className="relative">
+              <TextInput
+                value={content.detailsSection.venueName}
+                onChange={(e) => {
+                  setPlaceSearchResults([]);
+                  update((prev) => ({
+                    ...prev,
+                    detailsSection: { ...prev.detailsSection, venueName: e.target.value },
+                  }));
+                }}
+                className="h-14 w-full text-[18px]"
+              />
+              {placeSearchResults.length > 0 && (
+                <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-40 max-h-44 space-y-1 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
+                  {placeSearchResults.map((place) => (
+                    <button
+                      key={place.id}
+                      type="button"
+                      className="w-full rounded-md px-2 py-2 text-left hover:bg-gray-50"
+                      onClick={() => applyPlaceResult(place)}
+                    >
+                      <p className="text-sm font-semibold text-gray-900">{place.place_name}</p>
+                      <p className="mt-0.5 text-xs text-gray-600">{place.road_address_name || place.address_name}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {placeSearchBusy ? <p className="mt-1 text-xs text-gray-500">검색 중...</p> : null}
+            </div>
           </Field>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field label="주소">
+              <TextInput
+                value={content.detailsSection.address}
+                disabled
+                className="bg-gray-100 text-gray-500"
+              />
+            </Field>
+            <Field label="상세주소">
+              <TextInput
+                value={content.detailsSection.detailAddress}
+                onChange={(e) =>
+                  update((prev) => ({
+                    ...prev,
+                    detailsSection: { ...prev.detailsSection, detailAddress: e.target.value },
+                  }))
+                }
+              />
+            </Field>
+          </div>
           <Field label="장소 설명">
             <TextArea
               rows={4}
@@ -1458,19 +1782,7 @@ function AdminPageContent() {
               }
             />
           </Field>
-          <div className="grid gap-3 md:grid-cols-2">
-            <Field label="주소">
-              <TextInput
-                value={content.detailsSection.address}
-                onChange={(e) =>
-                  update((prev) => ({
-                    ...prev,
-                    detailsSection: { ...prev.detailsSection, address: e.target.value },
-                  }))
-                }
-              />
-            </Field>
-            <Field label="역/거리 문구">
+          <Field label="역/거리 문구">
               <TextInput
                 value={content.detailsSection.stationDescription}
                 onChange={(e) =>
@@ -1483,8 +1795,7 @@ function AdminPageContent() {
                   }))
                 }
               />
-            </Field>
-          </div>
+          </Field>
           <div className="space-y-2">
             <p className="text-sm font-medium text-gray-700">지도 링크</p>
             {FIXED_MAP_LINKS.map((preset, index) => {
@@ -1591,18 +1902,16 @@ function AdminPageContent() {
           </div>
         </Section>
 
-        <Section id="section-carousel" title="첫번째 캐러셀 이미지" className="order-[40]">
+        <Section id="section-carousel" title="첫번째 캐러셀 이미지" className="order-[40] mt-20">
           <div className="space-y-2">
             <p className="text-sm font-medium text-gray-700">히어로 캐러셀 이미지</p>
             {content.heroSection.images.map((img, index) => (
               <div key={`hero-${index}`} className="rounded-lg border border-gray-200 p-3 space-y-2">
                 <ImagePreview src={img.src} alt={img.alt} />
-                <input
-                  type="file"
+                <StyledFileInput
                   accept="image/*"
-                  className="block w-full text-xs"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
+                  className="mt-0"
+                  onSelect={async (file) => {
                     if (!file) return;
                     const src = await uploadFile(file, "hero-gallery");
                     update((prev) => {
@@ -1694,18 +2003,16 @@ function AdminPageContent() {
           </div>
         </Section>
 
-        <Section id="section-intro-image" title="소개 섹션 이미지" className="order-[60]">
+        <Section id="section-intro-image" title="소개 섹션 이미지" className="order-[60] mt-20">
           <Field label="소개 섹션 이미지">
             <ImagePreview
               src={content.introSection.image.src}
               alt={content.introSection.image.alt}
             />
-            <input
-              type="file"
+            <StyledFileInput
               accept="image/*"
-              className="mt-3 block w-full text-xs"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
+              className="mt-3"
+              onSelect={async (file) => {
                 if (!file) return;
                 const src = await uploadFile(file, "intro");
                 update((prev) => ({
@@ -1735,7 +2042,7 @@ function AdminPageContent() {
           </Field>
         </Section>
 
-        <Section id="section-gallery" title="갤러리 이미지" className="order-[70]">
+        <Section id="section-gallery" title="갤러리 이미지" className="order-[70] mt-2">
           <div className="space-y-2">
             <Field label="갤러리 타이틀">
               <TextInput
@@ -1761,89 +2068,89 @@ function AdminPageContent() {
             </Field>
           </div>
 
-          {content.gallerySection.images.map((img, index) => (
-            <div key={`gallery-${index}`} className="rounded-lg border border-gray-200 p-3 space-y-2">
-              <ImagePreview src={img.src} alt={img.alt} />
-              <input
-                type="file"
-                accept="image/*"
-                className="block w-full text-xs"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  const src = await uploadFile(file, "gallery");
-                  update((prev) => {
-                    const next = [...prev.gallerySection.images];
-                    next[index] = { ...next[index], src };
-                    return {
-                      ...prev,
-                      gallerySection: { ...prev.gallerySection, images: next },
-                    };
-                  });
-                }}
-              />
-              <p className="text-xs text-gray-500">권장 사진 크기: 1200 x 1800 (세로형 2:3)</p>
-              <div className="flex gap-2 text-xs">
-                <button
-                  className={mc.dangerButtonSm}
-                  onClick={() =>
+          <div className="grid gap-4 md:grid-cols-2">
+            {content.gallerySection.images.map((img, index) => (
+              <div key={`gallery-${index}`} className="rounded-lg border border-gray-200 p-3 space-y-2">
+                <ImagePreview src={img.src} alt={img.alt} />
+                <StyledFileInput
+                  accept="image/*"
+                  className="mt-0"
+                  onSelect={async (file) => {
+                    if (!file) return;
+                    const src = await uploadFile(file, "gallery");
                     update((prev) => {
                       const next = [...prev.gallerySection.images];
-                      next[index] = { ...next[index], src: PLACEHOLDER_SRC };
+                      next[index] = { ...next[index], src };
                       return {
                         ...prev,
                         gallerySection: { ...prev.gallerySection, images: next },
                       };
-                    })
-                  }
-                >
-                  파일 삭제
-                </button>
-                <button
-                  className={mc.secondaryButtonSm}
-                  onClick={() =>
-                    update((prev) => ({
-                      ...prev,
-                      gallerySection: {
-                        ...prev.gallerySection,
-                        images: moveItem(prev.gallerySection.images, index, "up"),
-                      },
-                    }))
-                  }
-                >
-                  위로
-                </button>
-                <button
-                  className={mc.secondaryButtonSm}
-                  onClick={() =>
-                    update((prev) => ({
-                      ...prev,
-                      gallerySection: {
-                        ...prev.gallerySection,
-                        images: moveItem(prev.gallerySection.images, index, "down"),
-                      },
-                    }))
-                  }
-                >
-                  아래로
-                </button>
-                <button
-                  className={mc.dangerButtonSm}
-                  onClick={() =>
-                    update((prev) => ({
-                      ...prev,
-                      gallerySection: {
-                        ...prev.gallerySection,
-                        images: prev.gallerySection.images.filter((_, i) => i !== index),
-                      },
-                    }))
-                  }
-                >
-                  삭제
-                </button>
+                    });
+                  }}
+                />
+                <p className="text-xs text-gray-500">권장 사진 크기: 1200 x 1800 (세로형 2:3)</p>
+                <div className="flex gap-2 text-xs">
+                  <button
+                    className={mc.dangerButtonSm}
+                    onClick={() =>
+                      update((prev) => {
+                        const next = [...prev.gallerySection.images];
+                        next[index] = { ...next[index], src: PLACEHOLDER_SRC };
+                        return {
+                          ...prev,
+                          gallerySection: { ...prev.gallerySection, images: next },
+                        };
+                      })
+                    }
+                  >
+                    파일 삭제
+                  </button>
+                  <button
+                    className={mc.secondaryButtonSm}
+                    onClick={() =>
+                      update((prev) => ({
+                        ...prev,
+                        gallerySection: {
+                          ...prev.gallerySection,
+                          images: moveItem(prev.gallerySection.images, index, "up"),
+                        },
+                      }))
+                    }
+                  >
+                    위로
+                  </button>
+                  <button
+                    className={mc.secondaryButtonSm}
+                    onClick={() =>
+                      update((prev) => ({
+                        ...prev,
+                        gallerySection: {
+                          ...prev.gallerySection,
+                          images: moveItem(prev.gallerySection.images, index, "down"),
+                        },
+                      }))
+                    }
+                  >
+                    아래로
+                  </button>
+                  <button
+                    className={mc.dangerButtonSm}
+                    onClick={() =>
+                      update((prev) => ({
+                        ...prev,
+                        gallerySection: {
+                          ...prev.gallerySection,
+                          images: prev.gallerySection.images.filter((_, i) => i !== index),
+                        },
+                      }))
+                    }
+                  >
+                    삭제
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
 
           <button
             className={mc.secondaryButton}
@@ -1864,7 +2171,7 @@ function AdminPageContent() {
           </button>
         </Section>
 
-        <Section id="section-account" title="계좌번호 영역" className="order-[90]">
+        <Section id="section-account" title="계좌번호 영역" className="order-[90] mt-20">
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="섹션 타이틀">
               <TextInput
@@ -2032,7 +2339,7 @@ function AdminPageContent() {
           </div>
         </Section>
 
-        <Section id="section-footer" title="푸터 영역" className="order-[100]">
+        <Section id="section-footer" title="푸터 영역" className="order-[100] mt-20">
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="이름 문구">
               <TextInput
@@ -2073,27 +2380,11 @@ function AdminPageContent() {
           </div>
         </section>
 
-        <aside className="hidden bg-gray-200 px-6 py-8 lg:block">
-          <div className="sticky top-6 mx-auto w-full max-w-[560px] rounded-2xl border border-gray-300 bg-[#d8dde3] p-6">
-            <p className="mb-3 text-sm font-medium text-gray-700">모바일 실시간 미리보기</p>
+        <aside className="hidden min-h-0 bg-gray-200 px-6 py-8 lg:block">
+          <div className="sticky top-6 mx-auto w-full max-w-[560px]">
             <MobileLivePreview content={content} />
           </div>
         </aside>
-      </div>
-
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur-sm">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 md:px-8">
-          <span className="text-sm text-gray-600">변경사항을 임시저장해 주세요.</span>
-          <button
-            onClick={() => {
-              void handleSave();
-            }}
-            disabled={loading || saving || isReadOnly}
-            className={mc.secondaryButton}
-          >
-            {saving ? "저장 중..." : "임시저장하기"}
-          </button>
-        </div>
       </div>
 
       <div
@@ -2102,9 +2393,10 @@ function AdminPageContent() {
         }`}
       >
         <div className="rounded-[300px] bg-[#230603] px-6 py-3 text-sm font-medium text-white shadow-lg">
-          저장이 완료되었어요!
+          {toastMessage || "저장이 완료되었어요!"}
         </div>
       </div>
+
     </main>
   );
 }
@@ -2193,7 +2485,7 @@ function AccountEditor({
         <select
           value={item.bank}
           onChange={(e) => onChange({ ...item, bank: e.target.value })}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+          className="h-14 w-full rounded-lg border border-gray-300 pl-4 pr-12 text-base outline-none focus:border-black"
         >
           {!BANK_OPTIONS.includes(item.bank) && item.bank !== "" && (
             <option value={item.bank}>{item.bank}</option>

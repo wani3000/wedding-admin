@@ -71,6 +71,7 @@ export const defaultWeddingContent: WeddingContent = {
     venueDescription:
       "저희가 약속을 맺는 '노블발렌티 대치'는 단독홀로 운영되어, 복잡함 없이 오직 저희 하객분들만 여유롭게 모실 수 있는 공간입니다. 오셔서 맛있는 식사와 함께 자리를 빛내주시면 감사하겠습니다.",
     address: "서울 강남구 영동대로 325",
+    detailAddress: "",
     stationDescription: "삼성역에서 590m",
     mapLinks: [
       {

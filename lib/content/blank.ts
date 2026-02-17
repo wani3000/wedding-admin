@@ -33,7 +33,7 @@ export function createBlankWeddingContent(): WeddingContent {
     },
     heroSection: {
       title:
-        "2026년 2월 14일 토요일 오후 5시\n라움아트센터\n홍길동 • 홍길동의 아들 민준\n홍길동 • 홍길동의 딸 서연",
+        "2026년 2월 14일 토요일 오후 5시\n서울신라호텔\n홍길동 • 홍길동의 아들 민준\n홍길동 • 홍길동의 딸 서연",
       images: heroImages,
     },
     introSection: {
@@ -51,26 +51,27 @@ export function createBlankWeddingContent(): WeddingContent {
       images: galleryImages,
     },
     detailsSection: {
-      venueName: "라움아트센터",
+      venueName: "서울신라호텔",
       venueDescription:
         "소중한 분들과의 시간을 편안하게 보내실 수 있도록\n예식과 식사가 한 공간에서 진행됩니다.",
-      address: "서울 강남구 언주로 564",
-      stationDescription: "선정릉역 4번 출구에서 도보 7분",
+      address: "서울 중구 동호로 249",
+      detailAddress: "",
+      stationDescription: "동대입구역 5번 출구에서 도보 5분",
       mapLinks: [
         {
           name: "카카오맵",
           icon: "/icon/kakaomap.png",
-          url: "https://map.kakao.com",
+          url: "https://map.kakao.com/link/search/%EC%84%9C%EC%9A%B8%EC%8B%A0%EB%9D%BC%ED%98%B8%ED%85%94",
         },
         {
           name: "네이버맵",
           icon: "/icon/navermap.png",
-          url: "https://map.naver.com",
+          url: "https://map.naver.com/v5/search/%EC%84%9C%EC%9A%B8%EC%8B%A0%EB%9D%BC%ED%98%B8%ED%85%94",
         },
         {
           name: "티맵",
           icon: "/icon/tmap.png",
-          url: "https://www.tmap.co.kr",
+          url: "https://www.tmap.co.kr/tmap2/search?name=%EC%84%9C%EC%9A%B8%EC%8B%A0%EB%9D%BC%ED%98%B8%ED%85%94",
         },
       ],
       items: [
@@ -109,7 +110,7 @@ export function createBlankWeddingContent(): WeddingContent {
     },
     share: {
       kakaoTitle: "초대합니다",
-      kakaoDescription: "2026년 2월 14일 토요일 오후 5시 라움아트센터",
+      kakaoDescription: "2026년 2월 14일 토요일 오후 5시 서울신라호텔",
       ogImageUrl: PLACEHOLDER,
       kakaoImageUrl: PLACEHOLDER,
       imageUrl: PLACEHOLDER,

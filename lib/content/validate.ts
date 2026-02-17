@@ -164,6 +164,10 @@ export function normalizeWeddingContent(
         detailsSection.address,
         baseContent.detailsSection.address,
       ),
+      detailAddress: asString(
+        detailsSection.detailAddress,
+        baseContent.detailsSection.detailAddress,
+      ),
       stationDescription: asString(
         detailsSection.stationDescription,
         baseContent.detailsSection.stationDescription,

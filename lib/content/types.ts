@@ -64,6 +64,7 @@ export type WeddingContent = {
     venueName: string;
     venueDescription: string;
     address: string;
+    detailAddress: string;
     stationDescription: string;
     mapLinks: MapLink[];
     items: DetailItem[];
