@@ -214,7 +214,18 @@ export function normalizeWeddingContent(
         share.kakaoDescription,
         baseContent.share.kakaoDescription,
       ),
-      imageUrl: asString(share.imageUrl, baseContent.share.imageUrl),
+      ogImageUrl: asString(
+        share.ogImageUrl,
+        asString(share.imageUrl, baseContent.share.ogImageUrl),
+      ),
+      kakaoImageUrl: asString(
+        share.kakaoImageUrl,
+        asString(share.imageUrl, baseContent.share.kakaoImageUrl),
+      ),
+      imageUrl: asString(
+        share.imageUrl,
+        asString(share.ogImageUrl, baseContent.share.imageUrl),
+      ),
       buttonTitle: asString(share.buttonTitle, baseContent.share.buttonTitle),
     },
     footer: {

@@ -63,7 +63,7 @@ export function Gallery({
           </Link>
         </ScrollReveal>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-[2px] md:gap-1 items-start">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-[2px] md:gap-1 items-start">
           {projects.map((project, i) => (
             <GalleryItem
               key={`${project.src}-${i}`}
@@ -119,7 +119,7 @@ function GalleryItem({
                   alt={project.title}
                   fill
                   className={`object-cover select-none transition-all duration-500 md:group-hover:scale-105 ${loaded ? "opacity-100" : "opacity-0"}`}
-                  sizes="(max-width: 768px) 50vw, 33vw"
+                  sizes="(max-width: 768px) 50vw, 25vw"
                   draggable={false}
                   onLoad={() => setLoaded(true)}
                   onError={() => setError(true)}

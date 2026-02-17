@@ -164,6 +164,8 @@ export const defaultWeddingContent: WeddingContent = {
   share: {
     kakaoTitle: "박철완 ♥ 서나라 결혼합니다",
     kakaoDescription: "26년 5월 2일 토요일 오후 12시 30분\n노블발렌티 대치",
+    ogImageUrl: "/img/1200x630.png",
+    kakaoImageUrl: "/img/1200x630.png",
     imageUrl: "/img/1200x630.png",
     buttonTitle: "청첩장 보기",
   },

@@ -110,6 +110,8 @@ export function createBlankWeddingContent(): WeddingContent {
     share: {
       kakaoTitle: "초대합니다",
       kakaoDescription: "2026년 2월 14일 토요일 오후 5시 라움아트센터",
+      ogImageUrl: PLACEHOLDER,
+      kakaoImageUrl: PLACEHOLDER,
       imageUrl: PLACEHOLDER,
       buttonTitle: "청첩장 보기",
     },

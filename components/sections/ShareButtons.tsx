@@ -118,9 +118,11 @@ export function ShareButtons({ content }: { content: WeddingContent }) {
 
     const shareUrl = window.location.href;
     const rawImage =
-      content.heroMedia.type === "video"
+      content.share.kakaoImageUrl ||
+      content.share.ogImageUrl ||
+      (content.heroMedia.type === "video"
         ? content.heroMedia.poster || content.heroMedia.mobileSrc || content.share.imageUrl
-        : content.heroMedia.mobileSrc || content.share.imageUrl;
+        : content.heroMedia.mobileSrc || content.share.imageUrl);
     const imageUrl = rawImage.startsWith("http") ? rawImage : `${window.location.origin}${rawImage}`;
 
     window.Kakao.Share.sendDefault({

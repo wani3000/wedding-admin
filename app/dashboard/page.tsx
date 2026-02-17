@@ -154,7 +154,10 @@ function InvitationCardView({
   const isExpired = section === "expired";
 
   return (
-    <article className="rounded-xl border border-gray-200 bg-white p-4 md:p-5">
+    <article
+      data-invitation-card-id={invitation.id}
+      className="rounded-xl border border-gray-200 bg-white p-4 md:p-5"
+    >
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex min-w-0 items-center gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -63,7 +63,7 @@ export function GalleryPageClient({
 
       <main className={`px-4 pb-24 ${isDesktop ? "pt-24" : "pt-8"}`}>
         <div className="mx-auto max-w-6xl">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-[2px] items-start">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-[2px] items-start">
             {images.map((image, i) => (
               <div key={`${image.src}-${i}`}>
                 <Link href={`${lightboxPath}?index=${i}`}>
@@ -78,7 +78,7 @@ export function GalleryPageClient({
                         fill
                         loading="lazy"
                         className="object-cover select-none transition-transform duration-300 group-hover:scale-105"
-                        sizes="(max-width: 768px) 50vw, 33vw"
+                        sizes="(max-width: 768px) 50vw, 25vw"
                         draggable={false}
                       />
                     </div>

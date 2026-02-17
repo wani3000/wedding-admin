@@ -299,7 +299,7 @@ function EditorHeader({
 
   return (
     <header className="border-b border-gray-200 bg-white">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-4 px-4 md:px-6">
+      <div className="flex h-16 w-full items-center gap-4 px-4 md:px-6">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -378,7 +378,9 @@ function AdminPageContent() {
   const isPlatformMode = invitationId !== null && invitationId !== "";
   const isSuperMode = searchParams.get("super") === "1";
 
-  const [content, setContent] = useState<WeddingContent | null>(null);
+  const [content, setContent] = useState<WeddingContent>(() =>
+    withFixedMapLinks(createBlankWeddingContent()),
+  );
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -398,6 +400,8 @@ function AdminPageContent() {
   const [activeSection, setActiveSection] = useState("section-share");
   const [isLivePreviewVisible, setIsLivePreviewVisible] = useState(false);
   const [heroPreviewMeta, setHeroPreviewMeta] = useState<{ name: string; sizeBytes: number } | null>(null);
+  const [shareOgPreviewMeta, setShareOgPreviewMeta] = useState<{ name: string; sizeBytes: number } | null>(null);
+  const [shareKakaoPreviewMeta, setShareKakaoPreviewMeta] = useState<{ name: string; sizeBytes: number } | null>(null);
 
   const getAdminHeaders = useCallback((): Record<string, string> => {
     if (activeAdminKey === "") return {};
@@ -518,10 +522,12 @@ function AdminPageContent() {
 
       setLoading(true);
       try {
-        const res = await fetch(contentEndpoint, {
+        const contentPromise = fetch(contentEndpoint, {
           cache: "no-store",
           headers: getAdminHeaders(),
         });
+        const metaPromise = isPlatformMode ? loadInvitationMeta() : loadBackups(activeAdminKey);
+        const [res] = await Promise.all([contentPromise, metaPromise]);
         if (!res.ok) {
           setMessage(isPlatformMode ? "초대장 접근 권한이 없습니다." : "로그인 정보가 올바르지 않습니다.");
           if (!isPlatformMode) {
@@ -533,11 +539,6 @@ function AdminPageContent() {
         }
         const data = (await res.json()) as WeddingContent;
         setContent(withFixedMapLinks(data));
-        if (!isPlatformMode) {
-          await loadBackups(activeAdminKey);
-        } else {
-          await loadInvitationMeta();
-        }
         setLoading(false);
       } catch {
         setMessage("관리자 데이터를 불러오지 못했습니다.");
@@ -557,13 +558,8 @@ function AdminPageContent() {
     loadInvitationMeta,
   ]);
 
-  const ready = useMemo(() => content !== null, [content]);
-
   const update = (fn: (prev: WeddingContent) => WeddingContent) => {
-    setContent((prev) => {
-      if (!prev) return prev;
-      return fn(prev);
-    });
+    setContent((prev) => fn(prev));
   };
 
   const uploadFile = async (file: File, folder: string) => {
@@ -843,7 +839,7 @@ function AdminPageContent() {
     }
 
     setIsAuthenticated(false);
-    setContent(null);
+    setContent(withFixedMapLinks(createBlankWeddingContent()));
     setLoginPassword("");
     setActiveAdminKey("");
     window.sessionStorage.removeItem("adminPin");
@@ -880,7 +876,7 @@ function AdminPageContent() {
   }, [isAuthenticated, isCreateMode, isPlatformMode, isSuperMode]);
 
   useEffect(() => {
-    if (!ready) return;
+    if (!isAuthenticated) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -901,7 +897,7 @@ function AdminPageContent() {
     });
 
     return () => observer.disconnect();
-  }, [ready, sectionTabs]);
+  }, [isAuthenticated, sectionTabs]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 1024px)");
@@ -912,8 +908,8 @@ function AdminPageContent() {
   }, []);
 
   const firstSectionFields = useMemo(
-    () => parseFirstSectionTitle(content?.heroSection.title || ""),
-    [content?.heroSection.title],
+    () => parseFirstSectionTitle(content.heroSection.title || ""),
+    [content.heroSection.title],
   );
 
   if (!isAuthenticated && (!(isPlatformMode || isCreateMode) || isSuperMode)) {
@@ -950,30 +946,6 @@ function AdminPageContent() {
     );
   }
 
-  if (!ready || !content) {
-    return (
-      <main className="min-h-screen bg-gray-50 p-6 md:p-10">
-        <div className="mx-auto max-w-3xl space-y-4 rounded-xl border border-gray-200 bg-white p-5 md:p-6">
-          <h1 className="text-2xl font-bold text-gray-900">초대장 제작하기</h1>
-          <p className="text-sm text-gray-600">
-            {loading ? "관리자 데이터 불러오는 중..." : "데이터를 불러오지 못했습니다."}
-          </p>
-          <button
-            className={mc.secondaryButton}
-            onClick={() => {
-              setIsAuthenticated(false);
-              setLoginPassword("");
-              setMessage("");
-            }}
-          >
-            다시 시도
-          </button>
-          {message && <p className="text-sm text-gray-700">{message}</p>}
-        </div>
-      </main>
-    );
-  }
-
   return (
     <main className="min-h-screen bg-[#f3f4f6]">
       <EditorHeader
@@ -992,21 +964,21 @@ function AdminPageContent() {
         }
         actions={
           <div className="hidden items-center gap-2 md:flex">
-            <button
-              onClick={() => {
-                void handleSave();
-              }}
-              disabled={saving || isReadOnly}
-              className={mc.secondaryButton}
-            >
-              {saving ? "저장 중..." : "임시저장"}
-            </button>
+              <button
+                onClick={() => {
+                  void handleSave();
+                }}
+                disabled={loading || saving || isReadOnly}
+                className={mc.secondaryButton}
+              >
+                {saving ? "저장 중..." : "임시저장"}
+              </button>
             {(isPlatformMode || isCreateMode) && (
               <>
                 {!isLivePreviewVisible && isPlatformMode && (
                   <button
                     onClick={handleCreatePreview}
-                    disabled={saving || isReadOnly}
+                    disabled={loading || saving || isReadOnly}
                     className={mc.secondaryButton}
                   >
                     청첩장 미리보기
@@ -1014,7 +986,7 @@ function AdminPageContent() {
                 )}
                 <button
                   onClick={handlePublish}
-                  disabled={saving || isReadOnly}
+                  disabled={loading || saving || isReadOnly}
                   className={mc.primaryButton}
                 >
                   청첩장 내보내기
@@ -1022,7 +994,7 @@ function AdminPageContent() {
                 {isReadOnly && (
                   <button
                     onClick={handleReactivateInvitation}
-                    disabled={reactivating}
+                    disabled={loading || reactivating}
                     className={mc.primaryButton}
                   >
                     {reactivating ? "재활성화 중..." : "청첩장 다시 활성화"}
@@ -1032,7 +1004,7 @@ function AdminPageContent() {
             )}
             <button
               onClick={handleResetToDefault}
-              disabled={saving || isReadOnly}
+              disabled={loading || saving || isReadOnly}
               className={mc.secondaryButton}
             >
               초기화
@@ -1043,9 +1015,10 @@ function AdminPageContent() {
 
       <div className="grid min-h-[calc(100vh-116px)] grid-cols-1 lg:grid-cols-2">
         <section className="border-b border-gray-200 bg-white lg:border-b-0 lg:border-r">
-          <div className="h-[calc(100vh-116px)] overflow-y-auto px-4 py-6 pb-32 md:px-6 md:py-8">
-            {(message || errors.length > 0 || previewUrl || publicUrl || (isPlatformMode && isReadOnly)) && (
+          <div className="h-[calc(100vh-116px)] overflow-y-auto px-4 pb-32 pt-0 md:px-6 md:pb-32 md:pt-0">
+            {(loading || message || errors.length > 0 || previewUrl || publicUrl || (isPlatformMode && isReadOnly)) && (
               <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-700">
+                {loading ? <p className="font-medium text-gray-800">관리자 데이터를 불러오는 중...</p> : null}
                 {message ? <p className="font-medium text-gray-800">{message}</p> : null}
                 {isPlatformMode && isReadOnly ? (
                   <p className="mt-2 font-medium text-[#800532]">
@@ -1078,7 +1051,7 @@ function AdminPageContent() {
               </div>
             )}
 
-        <div className="sticky top-0 z-20 -mx-4 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur-sm md:-mx-6 md:px-6">
+        <div className="sticky top-0 z-30 -mx-4 border-b border-gray-200 bg-white px-4 py-3 md:-mx-6 md:px-6">
           <div className="flex items-center gap-2 overflow-x-auto">
             {sectionTabs.map((tab) => (
               <button
@@ -1097,7 +1070,7 @@ function AdminPageContent() {
           </div>
         </div>
 
-          <fieldset disabled={isReadOnly} className="mt-5 flex flex-col gap-5 disabled:opacity-70">
+          <fieldset disabled={loading || isReadOnly} className="mt-5 flex flex-col gap-5 disabled:opacity-70">
         {!isPlatformMode && !isCreateMode && (
           <Section id="section-backup" title="백업/복구" className="order-[110]">
             <p className="text-sm text-gray-600">
@@ -1137,6 +1110,81 @@ function AdminPageContent() {
               }
             />
           </Field>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="기본 공유하기 이미지">
+              <ImagePreview
+                src={content.share.ogImageUrl || content.share.imageUrl}
+                alt="share-og-preview"
+                meta={shareOgPreviewMeta ?? undefined}
+              />
+              <p className="mt-2 text-xs text-gray-500">권장 사진 크기: 1000 x 630 (가로형 OG 이미지)</p>
+              <input
+                type="file"
+                accept="image/*"
+                className="mt-2 block w-full text-xs"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setShareOgPreviewMeta({ name: file.name, sizeBytes: file.size });
+                  const localUrl = URL.createObjectURL(file);
+                  update((prev) => ({
+                    ...prev,
+                    share: {
+                      ...prev.share,
+                      ogImageUrl: localUrl,
+                      imageUrl: localUrl,
+                    },
+                  }));
+                  try {
+                    const src = await uploadFile(file, "share");
+                    update((prev) => ({
+                      ...prev,
+                      share: {
+                        ...prev.share,
+                        ogImageUrl: src,
+                        imageUrl: src,
+                      },
+                    }));
+                  } catch (error) {
+                    setMessage(error instanceof Error ? error.message : "공유 이미지 업로드에 실패했습니다.");
+                  }
+                }}
+              />
+            </Field>
+
+            <Field label="카카오톡 공유하기 이미지">
+              <ImagePreview
+                src={content.share.kakaoImageUrl || content.share.ogImageUrl || content.share.imageUrl}
+                alt="share-kakao-preview"
+                meta={shareKakaoPreviewMeta ?? undefined}
+              />
+              <p className="mt-2 text-xs text-gray-500">권장 사진 크기: 800 x 1200 (세로형 카카오 공유 이미지)</p>
+              <input
+                type="file"
+                accept="image/*"
+                className="mt-2 block w-full text-xs"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setShareKakaoPreviewMeta({ name: file.name, sizeBytes: file.size });
+                  const localUrl = URL.createObjectURL(file);
+                  update((prev) => ({
+                    ...prev,
+                    share: { ...prev.share, kakaoImageUrl: localUrl },
+                  }));
+                  try {
+                    const src = await uploadFile(file, "share");
+                    update((prev) => ({
+                      ...prev,
+                      share: { ...prev.share, kakaoImageUrl: src },
+                    }));
+                  } catch (error) {
+                    setMessage(error instanceof Error ? error.message : "카카오 공유 이미지 업로드에 실패했습니다.");
+                  }
+                }}
+              />
+            </Field>
+          </div>
           <Field label="설명">
             <TextInput
               value={content.share.kakaoDescription}
@@ -1330,6 +1378,11 @@ function AdminPageContent() {
                 }
               }}
             />
+            <p className="mt-2 text-xs text-gray-500">
+              {content.heroMedia.type === "video"
+                ? "권장 영상 크기: 1080 x 1920 (세로형), 10~15초"
+                : "권장 사진 크기: 1080 x 1920 (세로형)"}
+            </p>
             <button
               type="button"
               className={`mt-2 ${mc.secondaryButton}`}
@@ -1562,6 +1615,7 @@ function AdminPageContent() {
                     });
                   }}
                 />
+                <p className="text-xs text-gray-500">권장 사진 크기: 1200 x 1800 (세로형 2:3)</p>
                 <div className="flex gap-2 text-xs">
                   <button
                     className={mc.dangerButtonSm}
@@ -1663,6 +1717,7 @@ function AdminPageContent() {
                 }));
               }}
             />
+            <p className="mt-2 text-xs text-gray-500">권장 사진 크기: 1200 x 1800 (세로형 2:3)</p>
             <button
               className={`mt-2 ${mc.dangerButtonSm}`}
               onClick={() =>
@@ -1727,6 +1782,7 @@ function AdminPageContent() {
                   });
                 }}
               />
+              <p className="text-xs text-gray-500">권장 사진 크기: 1200 x 1800 (세로형 2:3)</p>
               <div className="flex gap-2 text-xs">
                 <button
                   className={mc.dangerButtonSm}
@@ -2032,7 +2088,7 @@ function AdminPageContent() {
             onClick={() => {
               void handleSave();
             }}
-            disabled={saving || isReadOnly}
+            disabled={loading || saving || isReadOnly}
             className={mc.secondaryButton}
           >
             {saving ? "저장 중..." : "임시저장하기"}
@@ -2084,8 +2140,8 @@ function MobileLivePreview({ content }: { content: WeddingContent }) {
   const previewFrameStyle = useMemo(
     () =>
       ({
-        width: "min(100%, 390px, calc((100dvh - 220px) * 390 / 844))",
-        aspectRatio: "390 / 844",
+        width: "min(100%, 430px, calc((100dvh - 220px) * 430 / 932))",
+        aspectRatio: "430 / 932",
       }) as const,
     [],
   );

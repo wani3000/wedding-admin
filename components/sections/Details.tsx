@@ -41,21 +41,21 @@ export function Details({ content }: { content: WeddingContent["detailsSection"]
               </p>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <div className="flex w-full items-center gap-3">
-                <span className="min-w-0 flex-1 break-keep text-[17px] font-semibold text-gray-600">
+            <div className="flex flex-col gap-3">
+              <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
+                <span className="min-w-0 flex-1 break-words text-[17px] font-semibold text-gray-600">
                   {content.address}
                 </span>
                 <div
                   onClick={handleCopy}
-                  className="ml-auto shrink-0 flex items-center gap-1.5 rounded-full bg-black px-3 py-1.5 text-sm font-medium text-white transition-all hover:bg-gray-800 cursor-pointer select-none"
+                  className="inline-flex w-fit shrink-0 items-center gap-1.5 self-start rounded-full bg-black px-4 py-2 text-sm font-medium text-white transition-all hover:bg-gray-800 sm:self-auto cursor-pointer select-none"
                 >
                   <Copy className="w-3.5 h-3.5" />
                   <span className="font-sans">복사</span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-start gap-2">
                 <div className="relative h-6 w-6">
                   <Image
                     src="/icon/number2.png"
@@ -64,20 +64,20 @@ export function Details({ content }: { content: WeddingContent["detailsSection"]
                     className="object-contain"
                   />
                 </div>
-                <span className="text-[17px] font-semibold text-gray-600">
+                <span className="min-w-0 break-words text-[17px] font-semibold text-gray-600">
                   {content.stationDescription}
                 </span>
               </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-4 md:justify-start md:gap-x-8">
+            <div className="mt-4 grid grid-cols-3 gap-3 sm:flex sm:flex-wrap sm:items-center sm:justify-start sm:gap-x-6 sm:gap-y-4">
               {content.mapLinks.map((link, index) => (
-                <div key={`${link.name}-${index}`} className="flex items-center gap-4">
+                <div key={`${link.name}-${index}`} className="flex items-center justify-center">
                   <a
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 transition-all hover:scale-105 active:scale-95"
+                    className="flex min-w-0 flex-col items-center gap-1.5 transition-all hover:scale-105 active:scale-95 sm:flex-row sm:gap-2"
                   >
                     <div className="relative h-6 w-6 overflow-hidden rounded-md">
                       <Image
@@ -87,11 +87,10 @@ export function Details({ content }: { content: WeddingContent["detailsSection"]
                         className="object-cover"
                       />
                     </div>
-                    <span className="block w-auto text-center text-[16px] font-semibold text-gray-600 md:w-[3.5rem] md:text-[17px]">
+                    <span className="block w-full text-center text-[16px] font-semibold text-gray-600 sm:w-auto sm:text-[17px]">
                       {link.name}
                     </span>
                   </a>
-                  {index !== content.mapLinks.length - 1 && <div className="h-4 w-[1px] bg-gray-200" />}
                 </div>
               ))}
             </div>

@@ -7,7 +7,12 @@ import type { WeddingContent } from "@/lib/content/types";
 export const dynamic = "force-dynamic";
 
 function resolveShareImage(content: WeddingContent): string {
-  // Prefer hero media for OG/share
+  // Prefer user-provided OG image first.
+  if (content.share.ogImageUrl) {
+    return content.share.ogImageUrl;
+  }
+
+  // Fallback to hero media for OG/share
   if (content.heroMedia.type === "video") {
     return content.heroMedia.poster || content.heroMedia.mobileSrc || content.share.imageUrl;
   }

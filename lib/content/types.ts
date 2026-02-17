@@ -80,6 +80,8 @@ export type WeddingContent = {
   share: {
     kakaoTitle: string;
     kakaoDescription: string;
+    ogImageUrl: string;
+    kakaoImageUrl: string;
     imageUrl: string;
     buttonTitle: string;
   };
