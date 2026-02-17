@@ -37,7 +37,7 @@ export function Details({ content }: { content: WeddingContent["detailsSection"]
               <h2 className="font-serif text-[28px] font-medium leading-[1.33] tracking-tight md:text-[38px] lg:text-[46px]">
                 {content.venueName}
               </h2>
-              <p className="text-base md:text-lg text-gray-600 leading-relaxed max-w-xl whitespace-pre-line">
+              <p className="max-w-xl text-base md:text-lg text-gray-600 leading-relaxed whitespace-pre-line">
                 {content.venueDescription}
               </p>
             </div>

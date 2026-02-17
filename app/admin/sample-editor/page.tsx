@@ -74,11 +74,12 @@ function StyledFileInput({
   disabled?: boolean;
   className?: string;
 }) {
+  const uploadButtonClass = mc.secondaryButton;
   return (
     <label
-      className={`mt-2 flex w-full items-center gap-2 ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${className || ""}`}
+      className={`inline-flex min-w-0 items-center ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${className || ""}`}
     >
-      <span className={mc.secondaryButton}>파일 선택</span>
+      <span className={`block ${uploadButtonClass}`}>사진 선택</span>
       <input
         type="file"
         accept={accept}
@@ -113,18 +114,34 @@ const FIXED_MAP_LINKS = [
 const PLATFORM_DRAFT_STORAGE_KEY = "mariecard_platform_draft_v1";
 const KAKAO_JS_KEY =
   process.env.NEXT_PUBLIC_KAKAO_APP_KEY || "";
+const UPLOAD_DELETE_BUTTON_CLASS = mc.secondaryButton;
+
+function buildTmapWebSearchUrl(query: string) {
+  const keyword = query.trim();
+  return `https://www.tmap.co.kr/tmap2/search?name=${encodeURIComponent(keyword || "목적지")}`;
+}
 
 function withFixedMapLinks(content: WeddingContent): WeddingContent {
   const current = content.detailsSection.mapLinks || [];
+  const tmapQuery = content.detailsSection.venueName || content.detailsSection.address || "";
   return {
     ...content,
     detailsSection: {
       ...content.detailsSection,
-      mapLinks: FIXED_MAP_LINKS.map((preset, index) => ({
-        name: preset.name,
-        icon: preset.icon,
-        url: current[index]?.url || "",
-      })),
+      mapLinks: FIXED_MAP_LINKS.map((preset, index) => {
+        const currentUrl = current[index]?.url || "";
+        const normalizedUrl =
+          index === 2
+            ? !currentUrl || currentUrl.startsWith("tmap://")
+              ? buildTmapWebSearchUrl(tmapQuery)
+              : currentUrl
+            : currentUrl;
+        return {
+          name: preset.name,
+          icon: preset.icon,
+          url: normalizedUrl,
+        };
+      }),
     },
   };
 }
@@ -563,7 +580,7 @@ function AdminPageContent() {
             ? `https://map.kakao.com/link/map/${encodeURIComponent(place.place_name || "선택한장소")},${place.y},${place.x}`
             : `https://map.kakao.com/link/search/${encodeURIComponent(queryText)}`;
         const naverUrl = `https://map.naver.com/v5/search/${encodeURIComponent(queryText)}`;
-        const tmapUrl = `https://www.tmap.co.kr/tmap2/search?name=${encodeURIComponent(queryText)}`;
+        const tmapUrl = buildTmapWebSearchUrl(queryText);
 
         nextMapLinks[0] = { ...nextMapLinks[0], url: kakaoUrl };
         nextMapLinks[1] = { ...nextMapLinks[1], url: naverUrl };
@@ -1279,7 +1296,7 @@ function AdminPageContent() {
           }
         />
         <div className="border-b border-gray-200 px-4 pb-0 pt-3 md:px-6">
-          <div className="flex items-center gap-8 overflow-x-auto">
+          <div className="flex items-center gap-8 overflow-hidden whitespace-nowrap [touch-action:pan-y] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {sectionCategories.map((category) => (
               <button
                 key={category.id}
@@ -1379,7 +1396,8 @@ function AdminPageContent() {
             />
           </Field>
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="기본 공유하기 이미지">
+            <div>
+              <p className="mb-1.5 block text-sm font-medium text-gray-700">기본 공유하기 이미지</p>
               <ImagePreview
                 src={content.share.ogImageUrl || content.share.imageUrl}
                 alt="share-og-preview"
@@ -1387,66 +1405,103 @@ function AdminPageContent() {
                 previewClassName="h-24 w-40 rounded-md border border-gray-200 object-cover"
               />
               <p className="mt-2 text-xs text-gray-500">권장 사진 크기: 1000 x 630 (가로형 OG 이미지)</p>
-              <StyledFileInput
-                accept="image/*"
-                onSelect={async (file) => {
-                  if (!file) return;
-                  setShareOgPreviewMeta({ name: file.name, sizeBytes: file.size });
-                  const localUrl = URL.createObjectURL(file);
-                  update((prev) => ({
-                    ...prev,
-                    share: {
-                      ...prev.share,
-                      ogImageUrl: localUrl,
-                      imageUrl: localUrl,
-                    },
-                  }));
-                  try {
-                    const src = await uploadFile(file, "share");
+              <div className="mt-2 flex flex-nowrap items-center gap-1">
+                <StyledFileInput
+                  className="mt-0 w-auto flex-none"
+                  accept="image/*"
+                  onSelect={async (file) => {
+                    if (!file) return;
+                    setShareOgPreviewMeta({ name: file.name, sizeBytes: file.size });
+                    const localUrl = URL.createObjectURL(file);
                     update((prev) => ({
                       ...prev,
                       share: {
                         ...prev.share,
-                        ogImageUrl: src,
-                        imageUrl: src,
+                        ogImageUrl: localUrl,
+                        imageUrl: localUrl,
                       },
                     }));
-                  } catch (error) {
-                    pushToast(error instanceof Error ? error.message : "공유 이미지 업로드에 실패했습니다.");
-                  }
-                }}
-              />
-            </Field>
+                    try {
+                      const src = await uploadFile(file, "share");
+                      update((prev) => ({
+                        ...prev,
+                        share: {
+                          ...prev.share,
+                          ogImageUrl: src,
+                          imageUrl: src,
+                        },
+                      }));
+                    } catch (error) {
+                      pushToast(error instanceof Error ? error.message : "공유 이미지 업로드에 실패했습니다.");
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className={UPLOAD_DELETE_BUTTON_CLASS}
+                  onClick={() => {
+                    setShareOgPreviewMeta(null);
+                    update((prev) => ({
+                      ...prev,
+                      share: {
+                        ...prev.share,
+                        ogImageUrl: PLACEHOLDER_SRC,
+                        imageUrl: PLACEHOLDER_SRC,
+                      },
+                    }));
+                  }}
+                >
+                  사진 삭제
+                </button>
+              </div>
+            </div>
 
-            <Field label="카카오톡 공유하기 이미지">
+            <div>
+              <p className="mb-1.5 block text-sm font-medium text-gray-700">카카오톡 공유하기 이미지</p>
               <ImagePreview
                 src={content.share.kakaoImageUrl || content.share.ogImageUrl || content.share.imageUrl}
                 alt="share-kakao-preview"
                 meta={shareKakaoPreviewMeta ?? undefined}
               />
               <p className="mt-2 text-xs text-gray-500">권장 사진 크기: 800 x 1200 (세로형 카카오 공유 이미지)</p>
-              <StyledFileInput
-                accept="image/*"
-                onSelect={async (file) => {
-                  if (!file) return;
-                  setShareKakaoPreviewMeta({ name: file.name, sizeBytes: file.size });
-                  const localUrl = URL.createObjectURL(file);
-                  update((prev) => ({
-                    ...prev,
-                    share: { ...prev.share, kakaoImageUrl: localUrl },
-                  }));
-                  try {
-                    const src = await uploadFile(file, "share");
+              <div className="mt-2 flex flex-nowrap items-center gap-1">
+                <StyledFileInput
+                  className="mt-0 w-auto flex-none"
+                  accept="image/*"
+                  onSelect={async (file) => {
+                    if (!file) return;
+                    setShareKakaoPreviewMeta({ name: file.name, sizeBytes: file.size });
+                    const localUrl = URL.createObjectURL(file);
                     update((prev) => ({
                       ...prev,
-                      share: { ...prev.share, kakaoImageUrl: src },
+                      share: { ...prev.share, kakaoImageUrl: localUrl },
                     }));
-                  } catch (error) {
-                    pushToast(error instanceof Error ? error.message : "카카오 공유 이미지 업로드에 실패했습니다.");
-                  }
-                }}
-              />
-            </Field>
+                    try {
+                      const src = await uploadFile(file, "share");
+                      update((prev) => ({
+                        ...prev,
+                        share: { ...prev.share, kakaoImageUrl: src },
+                      }));
+                    } catch (error) {
+                      pushToast(error instanceof Error ? error.message : "카카오 공유 이미지 업로드에 실패했습니다.");
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className={UPLOAD_DELETE_BUTTON_CLASS}
+                  onClick={() => {
+                    setShareKakaoPreviewMeta(null);
+                    update((prev) => ({
+                      ...prev,
+                      share: { ...prev.share, kakaoImageUrl: PLACEHOLDER_SRC },
+                    }));
+                  }}
+                >
+                  사진 삭제
+                </button>
+              </div>
+            </div>
           </div>
           <Field label="설명">
             <TextInput
@@ -1593,74 +1648,77 @@ function AdminPageContent() {
               alt="hero-source-preview"
               meta={heroPreviewMeta ?? undefined}
             />
-            <StyledFileInput
-              accept={content.heroMedia.type === "video" ? "video/*" : "image/*"}
-              onSelect={async (file) => {
-                if (!file) return;
-                setHeroPreviewMeta({ name: file.name, sizeBytes: file.size });
-                // Show immediate local preview while uploading.
-                const localUrl = URL.createObjectURL(file);
-                update((prev) => ({
-                  ...prev,
-                  heroMedia: {
-                    ...prev.heroMedia,
-                    mobileSrc: localUrl,
-                    desktopSrc: localUrl,
-                    poster:
-                      prev.heroMedia.type === "image" ? localUrl : prev.heroMedia.poster,
-                  },
-                }));
-                try {
-                  const src = await uploadFile(file, "hero");
-                  let poster = content.heroMedia.poster;
-                  if (content.heroMedia.type === "image") {
-                    // 이미지: 포스터는 업로드 이미지로 자동 동일
-                    poster = src;
-                  } else {
-                    // 비디오: 첫 프레임을 캡처해서 포스터로 업로드
-                    const posterFile = await extractVideoPosterFile(file);
-                    poster = await uploadFile(posterFile, "hero");
-                  }
+            <div className="mt-2 flex flex-nowrap items-center gap-1">
+              <StyledFileInput
+                className="mt-0 w-auto flex-none"
+                accept={content.heroMedia.type === "video" ? "video/*" : "image/*"}
+                onSelect={async (file) => {
+                  if (!file) return;
+                  setHeroPreviewMeta({ name: file.name, sizeBytes: file.size });
+                  // Show immediate local preview while uploading.
+                  const localUrl = URL.createObjectURL(file);
                   update((prev) => ({
                     ...prev,
                     heroMedia: {
                       ...prev.heroMedia,
-                      mobileSrc: src,
-                      desktopSrc: src,
-                      poster: poster || PLACEHOLDER_SRC,
+                      mobileSrc: localUrl,
+                      desktopSrc: localUrl,
+                      poster:
+                        prev.heroMedia.type === "image" ? localUrl : prev.heroMedia.poster,
                     },
                   }));
-                  pushToast("대표 이미지가 반영되었습니다.");
-                } catch (error) {
-                  const message =
-                    error instanceof Error && error.message ? error.message : "대표 이미지 업로드에 실패했습니다.";
-                  pushToast(message);
-                }
-              }}
-            />
+                  try {
+                    const src = await uploadFile(file, "hero");
+                    let poster = content.heroMedia.poster;
+                    if (content.heroMedia.type === "image") {
+                      // 이미지: 포스터는 업로드 이미지로 자동 동일
+                      poster = src;
+                    } else {
+                      // 비디오: 첫 프레임을 캡처해서 포스터로 업로드
+                      const posterFile = await extractVideoPosterFile(file);
+                      poster = await uploadFile(posterFile, "hero");
+                    }
+                    update((prev) => ({
+                      ...prev,
+                      heroMedia: {
+                        ...prev.heroMedia,
+                        mobileSrc: src,
+                        desktopSrc: src,
+                        poster: poster || PLACEHOLDER_SRC,
+                      },
+                    }));
+                    pushToast("대표 이미지가 반영되었습니다.");
+                  } catch (error) {
+                    const message =
+                      error instanceof Error && error.message ? error.message : "대표 이미지 업로드에 실패했습니다.";
+                    pushToast(message);
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className={UPLOAD_DELETE_BUTTON_CLASS}
+                onClick={() => {
+                  setHeroPreviewMeta(null);
+                  update((prev) => ({
+                    ...prev,
+                    heroMedia: {
+                      ...prev.heroMedia,
+                      mobileSrc: PLACEHOLDER_SRC,
+                      desktopSrc: PLACEHOLDER_SRC,
+                      poster: PLACEHOLDER_SRC,
+                    },
+                  }));
+                }}
+              >
+                사진 삭제
+              </button>
+            </div>
             <p className="mt-2 text-xs text-gray-500">
               {content.heroMedia.type === "video"
                 ? "권장 영상 크기: 1080 x 1920 (세로형), 10~15초"
                 : "권장 사진 크기: 1080 x 1920 (세로형)"}
             </p>
-            <button
-              type="button"
-              className={`mt-2 ${mc.secondaryButton}`}
-              onClick={() => {
-                setHeroPreviewMeta(null);
-                update((prev) => ({
-                  ...prev,
-                  heroMedia: {
-                    ...prev.heroMedia,
-                    mobileSrc: PLACEHOLDER_SRC,
-                    desktopSrc: PLACEHOLDER_SRC,
-                    poster: PLACEHOLDER_SRC,
-                  },
-                }));
-              }}
-            >
-              파일 삭제
-            </button>
           </Field>
         </Section>
 
@@ -1884,26 +1942,25 @@ function AdminPageContent() {
             {content.heroSection.images.map((img, index) => (
               <div key={`hero-${index}`} className="rounded-lg border border-gray-200 p-3 space-y-2">
                 <ImagePreview src={img.src} alt={img.alt} />
-                <StyledFileInput
-                  accept="image/*"
-                  className="mt-0"
-                  onSelect={async (file) => {
-                    if (!file) return;
-                    const src = await uploadFile(file, "hero-gallery");
-                    update((prev) => {
-                      const next = [...prev.heroSection.images];
-                      next[index] = { ...next[index], src };
-                      return {
-                        ...prev,
-                        heroSection: { ...prev.heroSection, images: next },
-                      };
-                    });
-                  }}
-                />
-                <p className="text-xs text-gray-500">권장 사진 크기: 1200 x 1800 (세로형 2:3)</p>
-                <div className="flex gap-2 text-xs">
+                <div className="flex flex-nowrap items-center gap-1">
+                  <StyledFileInput
+                    accept="image/*"
+                    className="mt-0 w-auto flex-none"
+                    onSelect={async (file) => {
+                      if (!file) return;
+                      const src = await uploadFile(file, "hero-gallery");
+                      update((prev) => {
+                        const next = [...prev.heroSection.images];
+                        next[index] = { ...next[index], src };
+                        return {
+                          ...prev,
+                          heroSection: { ...prev.heroSection, images: next },
+                        };
+                      });
+                    }}
+                  />
                   <button
-                    className={mc.dangerButtonSm}
+                    className={UPLOAD_DELETE_BUTTON_CLASS}
                     onClick={() =>
                       update((prev) => {
                         const next = [...prev.heroSection.images];
@@ -1915,8 +1972,11 @@ function AdminPageContent() {
                       })
                     }
                   >
-                    파일 삭제
+                    사진 삭제
                   </button>
+                </div>
+                <p className="text-xs text-gray-500">권장 사진 크기: 1200 x 1800 (세로형 2:3)</p>
+                <div className="flex gap-2 text-xs">
                   <button
                     className={mc.secondaryButtonSm}
                     onClick={() =>
@@ -1985,36 +2045,38 @@ function AdminPageContent() {
               src={content.introSection.image.src}
               alt={content.introSection.image.alt}
             />
-            <StyledFileInput
-              accept="image/*"
-              className="mt-3"
-              onSelect={async (file) => {
-                if (!file) return;
-                const src = await uploadFile(file, "intro");
-                update((prev) => ({
-                  ...prev,
-                  introSection: {
-                    ...prev.introSection,
-                    image: { ...prev.introSection.image, src },
-                  },
-                }));
-              }}
-            />
+            <div className="mt-2 flex flex-nowrap items-center gap-1">
+              <StyledFileInput
+                accept="image/*"
+                className="mt-0 w-auto flex-none"
+                onSelect={async (file) => {
+                  if (!file) return;
+                  const src = await uploadFile(file, "intro");
+                  update((prev) => ({
+                    ...prev,
+                    introSection: {
+                      ...prev.introSection,
+                      image: { ...prev.introSection.image, src },
+                    },
+                  }));
+                }}
+              />
+              <button
+                className={UPLOAD_DELETE_BUTTON_CLASS}
+                onClick={() =>
+                  update((prev) => ({
+                    ...prev,
+                    introSection: {
+                      ...prev.introSection,
+                      image: { ...prev.introSection.image, src: PLACEHOLDER_SRC },
+                    },
+                  }))
+                }
+              >
+                사진 삭제
+              </button>
+            </div>
             <p className="mt-2 text-xs text-gray-500">권장 사진 크기: 1200 x 1800 (세로형 2:3)</p>
-            <button
-              className={`mt-2 ${mc.dangerButtonSm}`}
-              onClick={() =>
-                update((prev) => ({
-                  ...prev,
-                  introSection: {
-                    ...prev.introSection,
-                    image: { ...prev.introSection.image, src: PLACEHOLDER_SRC },
-                  },
-                }))
-              }
-            >
-              파일 삭제
-            </button>
           </Field>
         </Section>
 
@@ -2047,27 +2109,72 @@ function AdminPageContent() {
           <div className="grid gap-4 md:grid-cols-2">
             {content.gallerySection.images.map((img, index) => (
               <div key={`gallery-${index}`} className="rounded-lg border border-gray-200 p-3 space-y-2">
-                <ImagePreview src={img.src} alt={img.alt} />
-                <StyledFileInput
-                  accept="image/*"
-                  className="mt-0"
-                  onSelect={async (file) => {
-                    if (!file) return;
-                    const src = await uploadFile(file, "gallery");
-                    update((prev) => {
-                      const next = [...prev.gallerySection.images];
-                      next[index] = { ...next[index], src };
-                      return {
-                        ...prev,
-                        gallerySection: { ...prev.gallerySection, images: next },
-                      };
-                    });
-                  }}
-                />
-                <p className="text-xs text-gray-500">권장 사진 크기: 1200 x 1800 (세로형 2:3)</p>
-                <div className="flex gap-2 text-xs">
+                <div className="flex items-start justify-between gap-3">
+                  <ImagePreview src={img.src} alt={img.alt} />
+                  <div className="ml-auto flex shrink-0 items-center gap-2 text-xs">
+                    <button
+                      className={mc.secondaryButtonSm}
+                      onClick={() =>
+                        update((prev) => ({
+                          ...prev,
+                          gallerySection: {
+                            ...prev.gallerySection,
+                            images: moveItem(prev.gallerySection.images, index, "up"),
+                          },
+                        }))
+                      }
+                    >
+                      위로
+                    </button>
+                    <button
+                      className={mc.secondaryButtonSm}
+                      onClick={() =>
+                        update((prev) => ({
+                          ...prev,
+                          gallerySection: {
+                            ...prev.gallerySection,
+                            images: moveItem(prev.gallerySection.images, index, "down"),
+                          },
+                        }))
+                      }
+                    >
+                      아래로
+                    </button>
+                    <button
+                      className={mc.dangerButtonSm}
+                      onClick={() =>
+                        update((prev) => ({
+                          ...prev,
+                          gallerySection: {
+                            ...prev.gallerySection,
+                            images: prev.gallerySection.images.filter((_, i) => i !== index),
+                          },
+                        }))
+                      }
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-nowrap items-center gap-1">
+                  <StyledFileInput
+                    accept="image/*"
+                    className="mt-0 w-auto flex-none"
+                    onSelect={async (file) => {
+                      if (!file) return;
+                      const src = await uploadFile(file, "gallery");
+                      update((prev) => {
+                        const next = [...prev.gallerySection.images];
+                        next[index] = { ...next[index], src };
+                        return {
+                          ...prev,
+                          gallerySection: { ...prev.gallerySection, images: next },
+                        };
+                      });
+                    }}
+                  />
                   <button
-                    className={mc.dangerButtonSm}
+                    className={UPLOAD_DELETE_BUTTON_CLASS}
                     onClick={() =>
                       update((prev) => {
                         const next = [...prev.gallerySection.images];
@@ -2079,51 +2186,10 @@ function AdminPageContent() {
                       })
                     }
                   >
-                    파일 삭제
-                  </button>
-                  <button
-                    className={mc.secondaryButtonSm}
-                    onClick={() =>
-                      update((prev) => ({
-                        ...prev,
-                        gallerySection: {
-                          ...prev.gallerySection,
-                          images: moveItem(prev.gallerySection.images, index, "up"),
-                        },
-                      }))
-                    }
-                  >
-                    위로
-                  </button>
-                  <button
-                    className={mc.secondaryButtonSm}
-                    onClick={() =>
-                      update((prev) => ({
-                        ...prev,
-                        gallerySection: {
-                          ...prev.gallerySection,
-                          images: moveItem(prev.gallerySection.images, index, "down"),
-                        },
-                      }))
-                    }
-                  >
-                    아래로
-                  </button>
-                  <button
-                    className={mc.dangerButtonSm}
-                    onClick={() =>
-                      update((prev) => ({
-                        ...prev,
-                        gallerySection: {
-                          ...prev.gallerySection,
-                          images: prev.gallerySection.images.filter((_, i) => i !== index),
-                        },
-                      }))
-                    }
-                  >
-                    삭제
+                    사진 삭제
                   </button>
                 </div>
+                <p className="text-xs text-gray-500">권장 사진 크기: 1200 x 1800 (세로형 2:3)</p>
               </div>
             ))}
           </div>
@@ -2408,15 +2474,15 @@ function MobileLivePreview({ content }: { content: WeddingContent }) {
   const previewFrameStyle = useMemo(
     () =>
       ({
-        width: "min(100%, 430px, calc((100dvh - 220px) * 430 / 932))",
-        aspectRatio: "430 / 932",
+        width: "min(360px, 100%)",
+        aspectRatio: "360 / 720",
       }) as const,
     [],
   );
 
   return (
     <div
-      className="mx-auto overflow-hidden rounded-[34px] border-[8px] border-gray-900 bg-white shadow-xl"
+      className="mx-auto overflow-hidden rounded-[28px] border-[8px] border-white bg-white shadow-xl"
       style={previewFrameStyle}
     >
       <iframe

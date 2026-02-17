@@ -87,7 +87,7 @@ export const defaultWeddingContent: WeddingContent = {
       {
         name: "티맵",
         icon: "/icon/tmap.png",
-        url: "tmap://route?goalname=노블발렌티 대치점&goalx=127.0633&goaly=37.5083",
+        url: "https://www.tmap.co.kr/tmap2/search?name=%EB%85%B8%EB%B8%94%EB%B0%9C%EB%A0%8C%ED%8B%B0%20%EB%8C%80%EC%B9%98",
       },
     ],
     items: [
