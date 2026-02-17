@@ -1228,16 +1228,6 @@ function AdminPageContent() {
           name={profileName}
           email={profileEmail}
           onLogout={handleHeaderLogout}
-          center={
-            <div className="flex min-w-0 items-center gap-3 text-sm text-gray-600">
-              <span className="hidden whitespace-nowrap md:inline">초대장 제작하기</span>
-              {isPlatformMode ? (
-                <span className="hidden whitespace-nowrap md:inline">
-                  상태: <span className="font-medium text-gray-900">{invitationMeta?.status || "draft"}</span>
-                </span>
-              ) : null}
-            </div>
-          }
           actions={
             <div className="hidden items-center gap-2 md:flex">
                 <button

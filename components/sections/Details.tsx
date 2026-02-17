@@ -56,15 +56,7 @@ export function Details({ content }: { content: WeddingContent["detailsSection"]
                 </div>
               </div>
 
-              <div className="flex items-start gap-2">
-                <div className="relative h-6 w-6">
-                  <Image
-                    src="/icon/number2.png"
-                    alt="2"
-                    fill
-                    className="object-contain"
-                  />
-                </div>
+              <div className="flex items-start">
                 <span className="min-w-0 break-words text-[17px] font-semibold text-gray-600">
                   {content.stationDescription}
                 </span>
