@@ -186,7 +186,7 @@ export function Header({ content }: { content: WeddingContent }) {
               </a>
             </ScrollReveal>
             <ScrollReveal delay={0.1}>
-              <div className="hidden max-w-[50vw] truncate text-xs font-medium tracking-tight text-inherit sm:block sm:text-sm">
+              <div className="max-w-[50vw] truncate text-right text-xs font-medium tracking-tight text-inherit sm:text-sm">
                 {content.wedding.headerLabel}
               </div>
             </ScrollReveal>

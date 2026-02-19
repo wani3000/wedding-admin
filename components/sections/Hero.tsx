@@ -50,7 +50,7 @@ export function Hero({ title, images }: { title: string; images: ImageItem[] }) 
             <h1 className="w-full text-center font-sans text-[18px] font-medium leading-[1.6] tracking-tight text-primary">
               <span className="block">{titleLines[0] || ""}</span>
               <span className="block">{titleLines[1] || ""}</span>
-              <span className="block mt-2">{titleLines[2] || ""}</span>
+              <span className="block mt-3">{titleLines[2] || ""}</span>
               <span className="block">{titleLines[3] || ""}</span>
             </h1>
           </ScrollReveal>

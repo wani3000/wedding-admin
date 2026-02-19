@@ -104,7 +104,7 @@ export function CalendarSection({ content }: { content: WeddingContent }) {
           <button
             type="button"
             onClick={handleAddToCalendar}
-            className="flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-gray-200"
+            className="flex items-center gap-2 rounded-full bg-gray-100 px-5 py-3 text-sm font-medium text-black transition-colors hover:bg-gray-200"
           >
             내 캘린더에 추가하기
           </button>
