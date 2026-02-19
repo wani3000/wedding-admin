@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 import { createBlankWeddingContent } from "@/lib/content/blank";
+import { buildMonthCalendar, WEEKDAY_LABELS } from "@/lib/calendar/calendarUtils";
 import { mc } from "@/lib/mariecardStyles";
 import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
 import type { AccountInfo, DetailItem, GalleryImageItem, ImageItem, WeddingContent } from "@/lib/content/types";
@@ -729,6 +730,7 @@ function AdminPageContent() {
         id: "category-extra",
         label: "추가글",
         sections: [
+          { id: "section-calendar", label: "캘린더" },
           { id: "section-location", label: "장소/오시는길" },
           { id: "section-account", label: "계좌번호" },
           { id: "section-footer", label: "푸터 영역" },
@@ -1203,6 +1205,10 @@ function AdminPageContent() {
     () => parseFirstSectionTitle(content.heroSection.title || ""),
     [content.heroSection.title],
   );
+  const editorCalendar = useMemo(
+    () => buildMonthCalendar(content.calendarSection.selectedDate || ""),
+    [content.calendarSection.selectedDate],
+  );
 
   if (!isAuthenticated && (!(isPlatformMode || isCreateMode) || isSuperMode)) {
     return (
@@ -1296,7 +1302,7 @@ function AdminPageContent() {
           }
         />
         <div className="border-b border-gray-200 px-4 pb-0 pt-3 md:px-6">
-          <div className="flex items-center gap-8 overflow-hidden whitespace-nowrap [touch-action:pan-y] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex items-center gap-8 overflow-x-auto whitespace-nowrap [touch-action:pan-y] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {sectionCategories.map((category) => (
               <button
                 key={category.id}
@@ -1311,6 +1317,44 @@ function AdminPageContent() {
                 {category.label}
               </button>
             ))}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 pb-3 md:hidden">
+            <button
+              onClick={() => {
+                void handleSave();
+              }}
+              disabled={loading || saving || isReadOnly}
+              className={mc.secondaryButton}
+            >
+              {saving ? "저장 중..." : "임시저장"}
+            </button>
+            {(isPlatformMode || isCreateMode) && (
+              <>
+                <button
+                  onClick={handlePublish}
+                  disabled={loading || saving || isReadOnly}
+                  className={mc.primaryButton}
+                >
+                  청첩장 내보내기
+                </button>
+                {isReadOnly && (
+                  <button
+                    onClick={handleReactivateInvitation}
+                    disabled={loading || reactivating}
+                    className={mc.primaryButton}
+                  >
+                    {reactivating ? "재활성화 중..." : "청첩장 다시 활성화"}
+                  </button>
+                )}
+              </>
+            )}
+            <button
+              onClick={handleResetToDefault}
+              disabled={loading || saving || isReadOnly}
+              className={mc.secondaryButton}
+            >
+              초기화
+            </button>
           </div>
         </div>
       </div>
@@ -1747,6 +1791,50 @@ function AdminPageContent() {
               }
             />
           </Field>
+        </Section>
+
+        <Section id="section-calendar" title="캘린더" className="order-[79] mt-20">
+          <Field label="날짜 선택">
+            <TextInput
+              type="date"
+              value={content.calendarSection.selectedDate}
+              onChange={(e) =>
+                update((prev) => ({
+                  ...prev,
+                  calendarSection: { ...prev.calendarSection, selectedDate: e.target.value },
+                }))
+              }
+            />
+          </Field>
+          <div className="rounded-lg border border-gray-200 bg-[#fafafa] p-4">
+            <p className="text-center text-sm font-medium text-gray-700">{editorCalendar.monthLabel}</p>
+            <div className="mt-3 grid grid-cols-7 text-center text-xs font-semibold text-gray-500">
+              {WEEKDAY_LABELS.map((label) => (
+                <span key={label} className={label === "일" ? "text-red-500" : ""}>
+                  {label}
+                </span>
+              ))}
+            </div>
+            <div className="mt-2 grid grid-cols-7 gap-y-1 text-center text-sm">
+              {editorCalendar.cells.map((cell, idx) => (
+                <div key={`${cell.date.toISOString()}-${idx}`} className="flex h-8 items-center justify-center">
+                  <span
+                    className={`inline-flex h-7 w-7 items-center justify-center rounded-full ${
+                      cell.isSelected
+                        ? "bg-[#800532] text-white"
+                        : cell.isCurrentMonth
+                          ? cell.isHoliday || cell.isSunday
+                            ? "text-red-500"
+                            : "text-gray-800"
+                          : "text-gray-300"
+                    }`}
+                  >
+                    {cell.day}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </Section>
 
         <Section id="section-location" title="장소/오시는길" className="order-[80] mt-2">

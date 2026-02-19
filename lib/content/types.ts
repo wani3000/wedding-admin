@@ -60,6 +60,10 @@ export type WeddingContent = {
     moreLabel: string;
     images: GalleryImageItem[];
   };
+  calendarSection: {
+    title: string;
+    selectedDate: string; // YYYY-MM-DD
+  };
   detailsSection: {
     venueName: string;
     venueDescription: string;

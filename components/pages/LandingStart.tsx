@@ -32,37 +32,37 @@ const partnerLoop = [...partners, ...partners];
 const showcaseCards = [
   {
     title: "실시간 미리보기",
-    body: "입력 즉시 모바일 화면으로 확인하고, 섹션별로 완성도를 빠르게 점검합니다.",
+    body: "입력 즉시 모바일 화면으로 확인하고, 행사별 구성과 문구 흐름을 빠르게 점검합니다.",
     tone: "bg-[#f6e1e6]",
     image: figFeatureA,
   },
   {
-    title: "AI 콘텐츠 정리",
-    body: "문구 아이디어, 일정 포맷, 안내문을 한 번에 다듬어 작성 속도를 높입니다.",
+    title: "초대장 문구 도우미",
+    body: "청첩장, 돌잔치, 환갑 등 행사 성격에 맞는 문구를 쉽게 정리하고 완성할 수 있습니다.",
     tone: "bg-[#f2e6ea]",
     image: figFeatureB,
   },
   {
     title: "갤러리 큐레이션",
-    body: "하이라이트 컷을 먼저 배치하고, 순서를 끌어다 놓아 완성도를 맞춥니다.",
+    body: "대표 사진부터 갤러리 이미지까지 순서를 조정해 한눈에 읽히는 초대장을 만듭니다.",
     tone: "bg-[#e8d9cb]",
     image: figFeatureC,
   },
   {
     title: "발행 관리",
-    body: "미리보기 링크와 실제 공유 링크를 분리해 안전하게 검수 후 발행합니다.",
+    body: "미리보기 링크와 실제 공유 링크를 분리해 검수 후 안전하게 발행할 수 있습니다.",
     tone: "bg-[#e0e4ca]",
     image: figFeatureD,
   },
   {
-    title: "팀 협업 워크스페이스",
-    body: "웨딩플래너·가족과 함께 작성하고 변경 히스토리를 관리할 수 있습니다.",
+    title: "행사별 템플릿 활용",
+    body: "청첩장뿐 아니라 돌잔치, 환갑, 생일, 기념일 초대장까지 목적에 맞게 시작할 수 있습니다.",
     tone: "bg-[#f6e1e6]",
     image: figFeatureE,
   },
   {
-    title: "트렌드 레이아웃",
-    body: "실제 인기 구조를 기반으로 섹션 배치를 빠르게 시작할 수 있습니다.",
+    title: "모바일 공유 최적화",
+    body: "카카오톡·문자·링크 공유에 최적화된 형태로 제작해 누구나 쉽게 초대장을 확인할 수 있습니다.",
     tone: "bg-[#f2e6ea]",
     image: figFeatureF,
   },
@@ -71,18 +71,18 @@ const showcaseCards = [
 const steps = [
   {
     number: "01",
-    title: "기본 정보 입력",
-    body: "예식 일정, 장소, 소개 문구를 입력해 초대장 구조를 빠르게 완성합니다.",
+    title: "행사 정보 입력",
+    body: "행사명, 일정, 장소, 초대 문구를 입력해 초대장 기본 구성을 빠르게 완성합니다.",
   },
   {
     number: "02",
-    title: "이미지와 갤러리 구성",
-    body: "히어로/섹션 이미지와 갤러리 순서를 조정하며 전체 분위기를 맞춥니다.",
+    title: "사진과 섹션 구성",
+    body: "대표 이미지와 갤러리, 안내 섹션을 배치해 전달력 있는 모바일 초대장을 만듭니다.",
   },
   {
     number: "03",
     title: "검수 후 링크 발행",
-    body: "미리보기로 최종 확인한 뒤 실제 공유 링크를 발행해 하객에게 전달합니다.",
+    body: "미리보기로 최종 확인한 뒤 실제 공유 링크를 발행해 하객과 지인에게 전달합니다.",
   },
 ];
 
@@ -137,7 +137,7 @@ export function LandingStart() {
   return (
     <main className="bg-[#faf3ec] text-[#230603]">
       <section className="bg-[#800532] px-4 py-3 text-center text-sm text-[#faf3ec]">
-        모바일 청첩장 제작 서비스 MarieCard 오픈. 지금 바로 샘플을 확인해 보세요.
+        초대장 제작 서비스 MarieCard 오픈. 지금 바로 샘플을 확인해 보세요.
       </section>
 
       <section className="relative overflow-hidden px-4 pb-24 pt-20 md:pb-36 md:pt-28">
@@ -158,16 +158,16 @@ export function LandingStart() {
           className="mx-auto flex w-full max-w-6xl flex-col items-center"
         >
           <p className="rounded-full border border-[#f6e1e6] bg-white px-4 py-1.5 text-xs tracking-[0.06em] text-[#800532]">
-            MARRIAGE INVITATION PLATFORM
+            INVITATION CREATION PLATFORM
           </p>
           <h1 className="mt-8 text-center text-4xl font-medium leading-tight tracking-[-0.04em] text-[#800532] md:text-6xl">
-            초대의 순간을 더 아름답게,
+            모든 초대의 순간을 더 아름답게,
             <br />
-            모바일 청첩장을 더 쉽게.
+            모바일 초대장을 더 쉽게.
           </h1>
           <p className="mt-6 max-w-2xl text-center text-lg text-[#230603]/70">
-            MarieCard는 예비부부와 웨딩팀이 함께 사용하는 차세대 모바일 청첩장 제작 도구입니다.
-            기획부터 공유까지 한 번에 완성하세요.
+            MarieCard는 청첩장, 돌잔치, 환갑, 생일 등 다양한 행사를 위한 모바일 초대장 제작 도구입니다.
+            기획부터 작성, 공유까지 한 번에 완성하세요.
           </p>
 
           <div className="mt-12 flex w-full max-w-2xl flex-col gap-3 rounded-[24px] bg-white p-4 shadow-[0_14px_40px_-20px_rgba(24,39,75,0.4)] md:flex-row">
@@ -175,7 +175,7 @@ export function LandingStart() {
               href="/sample"
               className="inline-flex flex-1 items-center justify-center rounded-2xl border border-[#e8d9cb] px-6 py-3 text-sm font-medium text-[#230603] transition hover:-translate-y-0.5 hover:bg-[#faf3ec]"
             >
-              청첩장 샘플 미리보기
+              초대장 샘플 미리보기
             </Link>
             <button
               onClick={handleStart}
@@ -247,9 +247,9 @@ export function LandingStart() {
             transition={{ duration: 0.6 }}
             className="text-center text-3xl font-semibold leading-tight tracking-[-0.03em] text-[#600426] md:text-5xl"
           >
-            결혼 준비에 필요한 운영을 줄이고,
+            행사 준비에 필요한 반복 작업을 줄이고,
             <br />
-            더 중요한 순간에 집중하세요.
+            더 중요한 초대의 순간에 집중하세요.
           </motion.h2>
 
           <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -324,9 +324,25 @@ export function LandingStart() {
       </section>
 
       <footer className="border-t border-[#f6e1e6] px-4 py-10 text-sm text-[#494949]">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 md:flex-row">
-          <p className="font-semibold text-[#230603]">MarieCard</p>
-          <p>© 2026 MarieCard. All rights reserved.</p>
+        <div className="mx-auto w-full max-w-6xl space-y-3">
+          <div className="flex flex-col items-center justify-between gap-3 md:flex-row">
+            <p className="font-semibold text-[#230603]">MarieCard</p>
+            <p>© 2026 MarieCard. All rights reserved.</p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-4 md:justify-end">
+            <Link href="/qna" className="text-[#800532] underline">
+              고객가이드(Q&A)
+            </Link>
+            <Link href="/terms" className="text-[#800532] underline">
+              이용약관
+            </Link>
+            <Link href="/privacy" className="text-[#800532] underline">
+              개인정보처리방침
+            </Link>
+            <Link href="/contact" className="text-[#800532] underline">
+              고객문의
+            </Link>
+          </div>
         </div>
       </footer>
     </main>

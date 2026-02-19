@@ -1,6 +1,7 @@
-import { InvitationRenderer } from "@/components/pages/InvitationRenderer";
-import { defaultWeddingContent } from "@/lib/content/defaults";
-
 export default function SamplePage() {
-  return <InvitationRenderer content={defaultWeddingContent} routeBasePath="/sample" />;
+  return (
+    <main className="min-h-screen bg-white">
+      현재 준비중입니다.
+    </main>
+  );
 }

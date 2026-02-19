@@ -66,6 +66,10 @@ export const defaultWeddingContent: WeddingContent = {
       { src: "/img/gallery/gallery_24.jpg", alt: "Wedding Photo 24", title: "Wedding Gallery 24", aspect: "aspect-[2/3]" },
     ],
   },
+  calendarSection: {
+    title: "캘린더",
+    selectedDate: "2026-05-02",
+  },
   detailsSection: {
     venueName: "노블발렌티 대치",
     venueDescription:

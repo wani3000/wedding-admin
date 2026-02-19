@@ -93,6 +93,7 @@ export function normalizeWeddingContent(
   const introSection = asRecord(record.introSection);
   const introImage = asRecord(introSection.image);
   const gallerySection = asRecord(record.gallerySection);
+  const calendarSection = asRecord(record.calendarSection);
   const detailsSection = asRecord(record.detailsSection);
   const accountSection = asRecord(record.accountSection);
   const share = asRecord(record.share);
@@ -149,6 +150,13 @@ export function normalizeWeddingContent(
         gallerySection.images,
         baseContent.gallerySection.images,
         asGalleryImageItem,
+      ),
+    },
+    calendarSection: {
+      title: asString(calendarSection.title, baseContent.calendarSection.title),
+      selectedDate: asString(
+        calendarSection.selectedDate,
+        baseContent.calendarSection.selectedDate,
       ),
     },
     detailsSection: {
@@ -303,6 +311,9 @@ export function validateWeddingContent(content: WeddingContent): string[] {
 
   if (content.detailsSection.venueName === "") {
     errors.push("예식장 이름은 필수입니다.");
+  }
+  if (content.calendarSection.selectedDate === "") {
+    errors.push("캘린더 날짜는 필수입니다.");
   }
   if (content.detailsSection.address === "") {
     errors.push("예식장 주소는 필수입니다.");

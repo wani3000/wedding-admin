@@ -50,6 +50,10 @@ export function createBlankWeddingContent(): WeddingContent {
       moreLabel: "사진 더보기",
       images: galleryImages,
     },
+    calendarSection: {
+      title: "캘린더",
+      selectedDate: "2026-02-14",
+    },
     detailsSection: {
       venueName: "서울신라호텔",
       venueDescription:

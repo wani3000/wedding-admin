@@ -2,6 +2,7 @@ import { Header } from "@/components/layout/Header";
 import { Hero } from "@/components/sections/Hero";
 import { Intro } from "@/components/sections/Intro";
 import { Gallery } from "@/components/sections/Gallery";
+import { CalendarSection } from "@/components/sections/CalendarSection";
 import { Details } from "@/components/sections/Details";
 import { Account } from "@/components/sections/Account";
 import { Footer } from "@/components/sections/Footer";
@@ -27,6 +28,7 @@ export function InvitationRenderer({
         <Hero title={content.heroSection.title} images={content.heroSection.images} />
         <Intro content={content.introSection} />
         <Gallery content={content.gallerySection} routeBasePath={routeBasePath} />
+        <CalendarSection content={content} />
         <Details content={content.detailsSection} />
         <Account content={content.accountSection} />
         <Footer content={content} />

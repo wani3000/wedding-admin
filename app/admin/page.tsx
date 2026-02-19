@@ -26,6 +26,7 @@ export default function SuperAdminPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [rows, setRows] = useState<InvitationRow[]>([]);
+  const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "published" | "archived">("all");
 
   const headers = useMemo<Record<string, string>>(() => {
     const next: Record<string, string> = {};
@@ -69,6 +70,17 @@ export default function SuperAdminPage() {
     if (!authed || !activeKey) return;
     void load();
   }, [activeKey, authed, load]);
+
+  const filteredRows = useMemo(() => {
+    if (statusFilter === "all") return rows;
+    return rows.filter((row) => row.status === statusFilter);
+  }, [rows, statusFilter]);
+
+  const statusLabel = (status: InvitationRow["status"]) => {
+    if (status === "draft") return "초안";
+    if (status === "published") return "활성";
+    return "만료";
+  };
 
   const onLogin = () => {
     if (loginId.trim() !== ADMIN_ID) {
@@ -166,9 +178,75 @@ export default function SuperAdminPage() {
             </button>
             {message && <span className="self-center text-sm text-gray-700">{message}</span>}
           </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button onClick={() => setStatusFilter("all")} className={statusFilter === "all" ? mc.primaryButton : mc.secondaryButton}>
+              전체
+            </button>
+            <button onClick={() => setStatusFilter("draft")} className={statusFilter === "draft" ? mc.primaryButton : mc.secondaryButton}>
+              초안
+            </button>
+            <button onClick={() => setStatusFilter("published")} className={statusFilter === "published" ? mc.primaryButton : mc.secondaryButton}>
+              활성
+            </button>
+            <button onClick={() => setStatusFilter("archived")} className={statusFilter === "archived" ? mc.primaryButton : mc.secondaryButton}>
+              만료
+            </button>
+          </div>
         </header>
 
-        <section className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+        <section className="md:hidden space-y-3">
+          {loading && <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-500">불러오는 중...</div>}
+          {!loading && filteredRows.length === 0 && (
+            <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-500">데이터가 없습니다.</div>
+          )}
+          {filteredRows.map((row) => {
+            const link = row.public_id ? `/invitation/${row.public_id}` : "";
+            return (
+              <article key={row.id} className="rounded-xl border border-gray-200 bg-white p-4 text-sm">
+                <p className="text-xs text-gray-500">상태</p>
+                <p className="font-medium text-gray-900">{statusLabel(row.status)}</p>
+                <p className="mt-3 text-xs text-gray-500">유저</p>
+                <p className="text-gray-700">
+                  {row.users?.name || "-"} {row.users?.email ? `(${row.users.email})` : ""}
+                </p>
+                <p className="mt-3 text-xs text-gray-500">공개 링크</p>
+                {row.public_id ? (
+                  <a className="break-all text-blue-600 underline" href={link} target="_blank" rel="noreferrer">
+                    {`https://mariecard.com${link}`}
+                  </a>
+                ) : (
+                  <span className="text-gray-400">미발급</span>
+                )}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {row.public_id && (
+                    <a
+                      href={`https://mariecard.com/invitation/${row.public_id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={mc.secondaryButtonSm}
+                    >
+                      접속
+                    </a>
+                  )}
+                  <a href={`/admin/sample-editor?invitationId=${row.id}&super=1`} className={mc.secondaryButtonSm}>
+                    수정
+                  </a>
+                  {row.status === "published" ? (
+                    <button onClick={() => void updateStatus(row.id, "expire")} className={mc.secondaryButtonSm}>
+                      만료
+                    </button>
+                  ) : (
+                    <button onClick={() => void updateStatus(row.id, "restore")} className={mc.secondaryButtonSm}>
+                      복구
+                    </button>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </section>
+
+        <section className="hidden overflow-x-auto rounded-xl border border-gray-200 bg-white md:block">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50">
               <tr className="text-left text-gray-600">
@@ -188,18 +266,18 @@ export default function SuperAdminPage() {
                   </td>
                 </tr>
               )}
-              {!loading && rows.length === 0 && (
+              {!loading && filteredRows.length === 0 && (
                 <tr>
                   <td className="px-4 py-4 text-gray-500" colSpan={6}>
                     데이터가 없습니다.
                   </td>
                 </tr>
               )}
-              {rows.map((row) => {
+              {filteredRows.map((row) => {
                 const link = row.public_id ? `/invitation/${row.public_id}` : "";
                 return (
                   <tr key={row.id} className="border-t border-gray-100">
-                    <td className="px-4 py-3">{row.status}</td>
+                    <td className="px-4 py-3">{statusLabel(row.status)}</td>
                     <td className="px-4 py-3">
                       {row.public_id ? (
                         <a className="text-blue-600 underline" href={link} target="_blank" rel="noreferrer">

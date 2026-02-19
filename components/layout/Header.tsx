@@ -175,18 +175,18 @@ export function Header({ content }: { content: WeddingContent }) {
             : "bg-transparent text-white"
         }`}
       >
-        <div className="mx-auto flex w-full max-w-[1400px] items-center px-6 py-6 md:px-10">
+        <div className="mx-auto flex w-full max-w-[1400px] items-center px-4 py-4 md:px-10 md:py-6">
           <div className="flex w-full items-center justify-between">
             <ScrollReveal>
               <a
                 href="/"
-                className="text-sm font-medium tracking-tight text-inherit whitespace-nowrap"
+                className="max-w-[45vw] truncate text-xs font-medium tracking-tight text-inherit sm:text-sm"
               >
                 {content.couple.displayName}
               </a>
             </ScrollReveal>
             <ScrollReveal delay={0.1}>
-              <div className="text-sm font-medium tracking-tight text-inherit whitespace-nowrap">
+              <div className="hidden max-w-[50vw] truncate text-xs font-medium tracking-tight text-inherit sm:block sm:text-sm">
                 {content.wedding.headerLabel}
               </div>
             </ScrollReveal>
